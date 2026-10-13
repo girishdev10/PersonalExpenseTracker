@@ -601,6 +601,16 @@ option {
   background: var(--surface-2);
 }
 
+
+/* ---------- Currency converter ---------- */
+.currency-converter-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.currency-converter-result{margin-top:16px;padding:18px;border:1px solid var(--line);border-radius:var(--radius-m);background:var(--surface-2);text-align:center;}
+.currency-converter-result .cc-amount{font-family:var(--font-serif);font-size:30px;font-weight:700;line-height:1.2;word-break:break-word;}
+.currency-converter-result .cc-rate{margin-top:6px;color:var(--ink-soft);font-size:12px;}
+.currency-converter-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.currency-converter-actions .btn{flex:1;min-width:120px;}
+.currency-converter-note{margin-top:10px;font-size:11px;color:var(--ink-faint);}
+@media(max-width:600px){.currency-converter-grid{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
@@ -631,6 +641,9 @@ option {
         <option value="EUR">€ EUR — Euro</option>
         <option value="GBP">£ GBP — British Pound</option>
         <option value="JPY">¥ JPY — Japanese Yen</option>
+        <option value="CAD">$ CAD — Canadian Dollar</option>
+        <option value="AED">د.إ AED — UAE Dirham</option>
+        <option value="AUD">A$ AUD — Australian Dollar</option>
       </select>
     </div>
     <button class="btn btn-primary btn-block" id="ob-start" style="margin-top:8px;">Get started</button>
@@ -1052,7 +1065,11 @@ option {
               <select id="settingsCurrency">
                 <option value="INR">₹ INR</option><option value="USD">$ USD</option><option value="EUR">€ EUR</option>
                 <option value="GBP">£ GBP</option><option value="JPY">¥ JPY</option>
+                <option value="CAD">C$ CAD</option><option value="AED">د.إ AED</option><option value="AUD">A$ AUD</option>
               </select>
+            </div>
+            <div class="field" style="display:flex;align-items:flex-end;">
+              <button class="btn" id="openCurrencyConverter">🔄 Currency converter</button>
             </div>
             <div class="field"><label for="settingsFutureDates">Future-dated expenses</label>
               <select id="settingsFutureDates"><option value="1">Allow</option><option value="0">Disallow</option></select>
@@ -1140,7 +1157,7 @@ var LS_USERS = 'ledger:users';
 var LS_ACTIVE = 'ledger:activeUser';
 function dataKey(id){ return 'ledger:data:' + id; }
 
-var CURRENCY_SYMBOLS = { INR:'₹', USD:'$', EUR:'€', GBP:'£', JPY:'¥' };
+var CURRENCY_SYMBOLS = { INR:'₹', USD:'$', EUR:'€', GBP:'£', JPY:'¥', CAD:'C$', AED:'د.إ', AUD:'A$' };
 
 var DEFAULT_EXPENSE_CATEGORIES = [
   { name:'Food', icon:'🍔', subs:['Breakfast','Lunch','Dinner','Snacks','Restaurant','Delivery'] },
@@ -2368,6 +2385,109 @@ $('#restoreInput').addEventListener('change', function(e){
 });
 
 /* ============================================================
+   CURRENCY CONVERTER
+   ============================================================ */
+var CC_CACHE_KEY = 'ledger:currencyRates';
+function currencyOptions(selected){
+  return Object.keys(CURRENCY_SYMBOLS).map(function(c){
+    return '<option value="'+c+'"'+(c===selected?' selected':'')+'>'+esc(CURRENCY_SYMBOLS[c]+' '+c)+'</option>';
+  }).join('');
+}
+function openCurrencyConverter(){
+  var from = (DATA && DATA.settings.currency) || 'INR';
+  var keys = Object.keys(CURRENCY_SYMBOLS);
+  var to = keys.find(function(c){ return c!==from; }) || from;
+  openModal(
+    '<div class="modal-head"><h2>Currency converter</h2><button class="icon-btn" id="ccClose" type="button" aria-label="Close currency converter" title="Close">✕</button></div>' +
+    '<p class="muted">Convert an amount between any currencies supported by Ledger. This does not change or modify your saved transactions.</p>' +
+    '<div class="field"><label for="ccAmount">Amount</label><input id="ccAmount" type="number" min="0" step="any" value="1" inputmode="decimal" placeholder="Enter amount"></div>' +
+    '<div class="currency-converter-grid">' +
+      '<div class="field"><label for="ccFrom">From</label><select id="ccFrom">'+currencyOptions(from)+'</select></div>' +
+      '<div class="field"><label for="ccTo">To</label><select id="ccTo">'+currencyOptions(to)+'</select></div>' +
+    '</div>' +
+    '<div class="field"><label for="ccRate">Exchange rate <span class="faint">(1 From = To)</span></label><input id="ccRate" type="number" min="0" step="any" placeholder="e.g. 0.58" inputmode="decimal"></div>' +
+    '<div class="currency-converter-actions">' +
+      '<button class="btn" id="ccSwap">↔️ Swap</button>' +
+      '<button class="btn" id="ccLive">🌐 Get live rate</button>' +
+      '<button class="btn btn-primary" id="ccConvert">Convert</button>' +
+    '</div>' +
+    '<div id="ccResult" class="currency-converter-result">Enter an exchange rate or get a live rate.</div>' +
+    '<div class="currency-converter-note">Live rates require internet access. The latest successfully fetched rates are cached on this device and can be reused offline.</div>'
+  );
+
+  $('#ccClose').onclick = closeModal;
+
+  function updateLabels(){
+    var f=$('#ccFrom').value, t=$('#ccTo').value;
+    $('#ccRate').placeholder='1 '+f+' = ? '+t;
+  }
+  function renderResult(){
+    var amount=parseFloat($('#ccAmount').value), rate=parseFloat($('#ccRate').value);
+    var f=$('#ccFrom').value, t=$('#ccTo').value;
+    if(!isFinite(amount) || amount<0){ $('#ccResult').innerHTML='Please enter a valid amount.'; return; }
+    if(!isFinite(rate) || rate<0){ $('#ccResult').innerHTML='Enter an exchange rate or tap <b>Get live rate</b>.'; return; }
+    var result=amount*rate;
+    var formatted=new Intl.NumberFormat(undefined,{minimumFractionDigits:2,maximumFractionDigits:6}).format(result);
+    var inputFormatted=new Intl.NumberFormat(undefined,{minimumFractionDigits:2,maximumFractionDigits:6}).format(amount);
+    $('#ccResult').innerHTML='<div class="cc-amount">'+esc(CURRENCY_SYMBOLS[t]+' '+formatted)+'</div><div class="cc-rate">'+esc(inputFormatted+' '+f+' = '+CURRENCY_SYMBOLS[t]+' '+formatted+' '+t)+'<br>1 '+esc(f)+' = '+esc(String(rate))+' '+esc(t)+'</div>';
+  }
+  function setRate(rate, source){
+    if(!isFinite(rate) || rate<=0){ showToast('Could not get a valid exchange rate.'); return; }
+    $('#ccRate').value=String(rate);
+    renderResult();
+    if(source) showToast(source);
+  }
+  function loadCachedRate(f,t){
+    try{
+      var all=JSON.parse(localStorage.getItem(CC_CACHE_KEY)||'{}');
+      var key=f+'_'+t;
+      return all[key] && all[key].rate ? all[key].rate : null;
+    }catch(e){ return null; }
+  }
+  function saveCachedRate(f,t,rate){
+    try{
+      var all=JSON.parse(localStorage.getItem(CC_CACHE_KEY)||'{}');
+      all[f+'_'+t]={rate:rate,at:new Date().toISOString()};
+      localStorage.setItem(CC_CACHE_KEY,JSON.stringify(all));
+    }catch(e){}
+  }
+  function fetchLiveRate(){
+    var f=$('#ccFrom').value, t=$('#ccTo').value;
+    if(f===t){ $('#ccRate').value='1'; renderResult(); showToast('Same currency: rate is 1.'); return; }
+    $('#ccLive').disabled=true; $('#ccLive').textContent='Loading…';
+    fetch('https://open.er-api.com/v6/latest/'+encodeURIComponent(f), {cache:'no-store'})
+      .then(function(r){ if(!r.ok) throw new Error('Network error'); return r.json(); })
+      .then(function(data){
+        var rate=data && data.rates && Number(data.rates[t]);
+        if(!isFinite(rate) || rate<=0) throw new Error('Rate unavailable');
+        saveCachedRate(f,t,rate); setRate(rate,'Live rate updated');
+      })
+      .catch(function(){
+        var cached=loadCachedRate(f,t);
+        if(cached){ setRate(cached,'Using cached rate (offline)'); }
+        else { showToast('Live rate unavailable. Enter the rate manually.'); }
+      })
+      .finally(function(){ $('#ccLive').disabled=false; $('#ccLive').textContent='🌐 Get live rate'; });
+  }
+  $('#ccFrom').addEventListener('change',function(){ updateLabels(); var cached=loadCachedRate($('#ccFrom').value,$('#ccTo').value); if(cached) $('#ccRate').value=cached; renderResult(); });
+  $('#ccTo').addEventListener('change',function(){ updateLabels(); var cached=loadCachedRate($('#ccFrom').value,$('#ccTo').value); if(cached) $('#ccRate').value=cached; renderResult(); });
+  $('#ccAmount').addEventListener('input',renderResult);
+  $('#ccRate').addEventListener('input',renderResult);
+  $('#ccConvert').addEventListener('click',renderResult);
+  $('#ccLive').addEventListener('click',fetchLiveRate);
+  $('#ccSwap').addEventListener('click',function(){
+    var f=$('#ccFrom').value, t=$('#ccTo').value, oldRate=parseFloat($('#ccRate').value);
+    $('#ccFrom').value=t; $('#ccTo').value=f;
+    if(isFinite(oldRate) && oldRate>0) $('#ccRate').value=String(1/oldRate);
+    else { var cached=loadCachedRate(t,f); $('#ccRate').value=cached || ''; }
+    updateLabels(); renderResult();
+  });
+  updateLabels();
+  var cached=loadCachedRate(from,to); if(cached) $('#ccRate').value=cached;
+  renderResult();
+}
+
+/* ============================================================
    SETTINGS
    ============================================================ */
 function renderSettingsPage(){
@@ -2382,6 +2502,7 @@ $all('#settingsThemeChips .chip').forEach(function(b){ b.addEventListener('click
 $all('#settingsLayoutChips .chip').forEach(function(b){ b.addEventListener('click', function(){ DATA.settings.layout=b.dataset.v; saveData(); applyTheme(); renderSettingsPage(); }); });
 $all('.theme-btn').forEach(function(b){ b.addEventListener('click', function(){ DATA.settings.theme=b.dataset.themeChoice; saveData(); applyTheme(); if(CURRENT_ROUTE==='settings') renderSettingsPage(); }); });
 $('#settingsCurrency').addEventListener('change', function(){ DATA.settings.currency=this.value; saveData(); refreshCurrentPage(); });
+$('#openCurrencyConverter').addEventListener('click', openCurrencyConverter);
 $('#settingsFutureDates').addEventListener('change', function(){ DATA.settings.allowFutureDates = this.value==='1'; saveData(); });
 
 function renderCategoryManager(){
