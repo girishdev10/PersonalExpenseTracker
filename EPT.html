@@ -249,6 +249,11 @@ input.invalid, select.invalid{ border-color:var(--danger); }
   max-height:88vh; overflow-y:auto; }
 .modal.modal-wide{ max-width:640px; }
 .modal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.modal-head .modal-close-btn{ margin-left:12px; flex:0 0 38px; }
+.modal-head h2{ min-width:0; }
+#themeRow .theme-btn.active{ background:var(--accent-soft); color:var(--accent); outline:2px solid var(--accent); outline-offset:-2px; font-weight:800; }
+#settingsThemeChips .chip.active{ background:var(--accent-soft); color:var(--accent); border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent); font-weight:800; }
+#themeRow .theme-btn{ min-height:32px; }
 .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
 
 /* Toast */
@@ -862,13 +867,9 @@ option {
                 <input id="tx-location" maxlength="60">
               </div>
             </div>
-            <div class="field">
-              <label for="tx-tags">Tags (comma separated)</label>
-              <input id="tx-tags" placeholder="work, travel">
-            </div>
-            <div class="field">
-              <label for="tx-notes">Notes</label>
-              <textarea id="tx-notes" maxlength="300"></textarea>
+            <div class="field" id="descriptionPresetsField">
+              <div class="chip-row" id="descriptionPresets" aria-label="Saved descriptions"></div>
+              <div class="faint">Tap a saved description to fill it in. Manage these in Settings.</div>
             </div>
             <div class="modal-actions" style="justify-content:space-between;">
               <button type="button" class="btn btn-ghost" id="txCancelEdit" style="display:none;">Cancel edit</button>
@@ -1159,6 +1160,16 @@ option {
         </div>
 
         <div class="card" style="margin-bottom:var(--gap);">
+          <h3>Saved descriptions</h3>
+          <p class="muted">Create reusable descriptions for common expenses or income, then tap one on the transaction form. These are saved only in this profile.</p>
+          <div id="descriptionPresetManager" style="margin-bottom:10px;"></div>
+          <div class="row" style="align-items:flex-end;">
+            <div class="field"><label for="newDescriptionPreset">New description</label><input id="newDescriptionPreset" maxlength="120" placeholder="e.g. Monthly allowance"></div>
+            <button class="btn" id="addDescriptionPresetBtn" type="button">Add description</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:var(--gap);">
           <h3>Security</h3>
           <p class="muted">An optional PIN adds a simple lock screen. This is a convenience feature, not strong encryption — anyone with access to your browser storage could still read the data.</p>
           <div class="row" style="align-items:flex-end;">
@@ -1399,6 +1410,21 @@ function openModal(html, opts){
   opts = opts||{};
   var root = $('#modalRoot');
   root.innerHTML = '<div class="modal-backdrop" id="mbd"><div class="modal '+(opts.wide?'modal-wide':'')+'" role="dialog" aria-modal="true">'+html+'</div></div>';
+  // Give every modal a top-right close button unless its header already has one.
+  // This keeps existing custom close handlers (for example the currency converter) intact.
+  var modalHeads = root.querySelectorAll('.modal-head');
+  modalHeads.forEach(function(head){
+    if(!head.querySelector('button')){
+      var closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'icon-btn modal-close-btn';
+      closeBtn.textContent = '\u2715';
+      closeBtn.setAttribute('aria-label', 'Close');
+      closeBtn.setAttribute('title', 'Close');
+      closeBtn.addEventListener('click', closeModal);
+      head.appendChild(closeBtn);
+    }
+  });
   document.addEventListener('keydown', modalEscHandler);
   $('#mbd').addEventListener('mousedown', function(e){ if(e.target.id==='mbd') closeModal(); });
   var firstInput = root.querySelector('input,select,textarea,button');
@@ -1442,10 +1468,11 @@ function defaultData(currency){
     recurring: [],
     settings: {
       currency: currency || 'INR',
-      theme: 'system',
+      theme: 'light',
       layout: 'comfortable',
       allowFutureDates: true,
       customCurrencies: [],
+      descriptionPresets: [],
       pinHash: null,
       lastBackupAt: null,
       hasSampleData: false
@@ -1467,12 +1494,16 @@ function loadDataForUser(id){
     var d = defaultData();
     DATA = Object.assign({}, d, parsed);
     DATA.settings = Object.assign({}, d.settings, parsed.settings||{});
+    // Older versions defaulted to System. Migrate that legacy default to Light.
+    if(DATA.settings.theme === 'system') DATA.settings.theme = 'light';
     if(!Array.isArray(DATA.categories) || !DATA.categories.length) DATA.categories = d.categories;
     if(!Array.isArray(DATA.incomeCategories) || !DATA.incomeCategories.length) DATA.incomeCategories = d.incomeCategories;
     if(!Array.isArray(DATA.paymentMethods) || !DATA.paymentMethods.length) DATA.paymentMethods = d.paymentMethods;
     if(!DATA.budgets || typeof DATA.budgets !== 'object') DATA.budgets = {};
     if(!Array.isArray(DATA.recurring)) DATA.recurring = [];
     if(!Array.isArray(DATA.settings.customCurrencies)) DATA.settings.customCurrencies = [];
+    if(!Array.isArray(DATA.settings.descriptionPresets)) DATA.settings.descriptionPresets = [];
+    DATA.settings.descriptionPresets = DATA.settings.descriptionPresets.map(function(v){ return String(v||'').trim().slice(0,120); }).filter(Boolean).filter(function(v,i,a){ return a.indexOf(v)===i; });
     DATA.settings.customCurrencies = DATA.settings.customCurrencies.filter(function(c){ return c && /^[A-Z0-9]{2,6}$/.test(c.code||'') && !CURRENCY_SYMBOLS[c.code]; }).map(function(c){ return { code:String(c.code).toUpperCase(), name:String(c.name||c.code), symbol:String(c.symbol||c.code) }; });
   }catch(e){
     try{ localStorage.setItem(dataKey(id)+':corrupt-backup:'+Date.now(), raw); }catch(e2){}
@@ -1880,6 +1911,7 @@ function setTxType(type){
   var qa = $('#txQuickAmounts');
   qa.innerHTML = QUICK_AMOUNTS.map(function(a){ return '<button type="button" class="chip" data-qa="'+a+'">+ '+currencySymbol(DATA.settings.currency)+a+'</button>'; }).join('');
   $all('[data-qa]', qa).forEach(function(b){ b.onclick = function(){ $('#tx-amount').value = b.dataset.qa; }; });
+  renderDescriptionPresetChips();
 }
 $all('#typeTabs .tab').forEach(function(b){ b.addEventListener('click', function(){ setTxType(b.dataset.type); }); });
 
@@ -1946,8 +1978,6 @@ function startEditTx(id){
   $('#tx-desc').value = t.description || '';
   $('#tx-merchant').value = t.merchant || '';
   $('#tx-location').value = t.location || '';
-  $('#tx-tags').value = (t.tags||[]).join(', ');
-  $('#tx-notes').value = t.notes || '';
   $('#addPageTitle').textContent = 'Edit ' + t.type;
   $('#txSubmitBtn').textContent = 'Save changes';
   $('#txCancelEdit').style.display = '';
@@ -1971,16 +2001,15 @@ $('#txForm').addEventListener('submit', function(e){
   if(!category){ fieldError('category','Please choose a category.'); ok=false; }
   if(!ok) return;
 
-  var tags = $('#tx-tags').value.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
   var payload = {
     type: TX_TYPE, date: date, time: $('#tx-time').value || '',
     amountMinor: amountMinor, category: category,
     subcategory: TX_TYPE==='expense' ? $('#tx-subcategory').value : '',
     paymentMethod: $('#tx-payment').value || '',
     upiApp: TX_TYPE==='expense' ? $('#tx-upi').value : '',
-    description: $('#tx-desc').value.trim(), notes: $('#tx-notes').value.trim(),
+    description: $('#tx-desc').value.trim(),
     location: $('#tx-location').value.trim(), merchant: $('#tx-merchant').value.trim(),
-    tags: tags, updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString()
   };
 
   function commit(){
@@ -2692,6 +2721,8 @@ function renderSettingsPage(){
   renderCustomCurrencyList();
   renderCategoryManager();
   renderPaymentManager();
+  renderDescriptionPresetManager();
+  renderDescriptionPresetChips();
 }
 $all('#settingsThemeChips .chip').forEach(function(b){ b.addEventListener('click', function(){ DATA.settings.theme=b.dataset.v; saveData(); applyTheme(); renderSettingsPage(); }); });
 $all('#settingsLayoutChips .chip').forEach(function(b){ b.addEventListener('click', function(){ DATA.settings.layout=b.dataset.v; saveData(); applyTheme(); renderSettingsPage(); }); });
@@ -2700,6 +2731,36 @@ $('#settingsCurrency').addEventListener('change', function(){ DATA.settings.curr
 $('#openCurrencyConverter').addEventListener('click', openCurrencyConverter);
 $('#addCustomCurrencyBtn').addEventListener('click', openAddCustomCurrencyModal);
 $('#settingsFutureDates').addEventListener('change', function(){ DATA.settings.allowFutureDates = this.value==='1'; saveData(); });
+
+function renderDescriptionPresetChips(){
+  var el=$('#descriptionPresets'); if(!el) return;
+  var presets=Array.isArray(DATA.settings.descriptionPresets)?DATA.settings.descriptionPresets:[];
+  el.innerHTML=presets.map(function(value,i){ return '<button type="button" class="chip" data-description-preset="'+i+'">'+esc(value)+'</button>'; }).join('');
+  $all('[data-description-preset]',el).forEach(function(b){
+    b.onclick=function(){ $('#tx-desc').value=DATA.settings.descriptionPresets[Number(b.dataset.descriptionPreset)]||''; $('#tx-desc').focus(); };
+  });
+  $('#descriptionPresetsField').style.display=presets.length?'':'none';
+}
+function renderDescriptionPresetManager(){
+  var el=$('#descriptionPresetManager'); if(!el) return;
+  var presets=Array.isArray(DATA.settings.descriptionPresets)?DATA.settings.descriptionPresets:[];
+  if(!presets.length){ el.innerHTML='<div class="faint">No saved descriptions yet.</div>'; return; }
+  el.innerHTML=presets.map(function(value,i){
+    return '<div class="row" style="align-items:center;margin-bottom:6px;"><span style="flex:1;min-width:0;overflow-wrap:anywhere;">'+esc(value)+'</span><button type="button" class="btn btn-sm btn-ghost" data-delete-description-preset="'+i+'" aria-label="Delete '+esc(value)+'">✕ Delete</button></div>';
+  }).join('');
+  $all('[data-delete-description-preset]',el).forEach(function(b){
+    b.onclick=function(){ var idx=Number(b.dataset.deleteDescriptionPreset); DATA.settings.descriptionPresets.splice(idx,1); saveData(); renderDescriptionPresetManager(); renderDescriptionPresetChips(); };
+  });
+}
+$('#addDescriptionPresetBtn').addEventListener('click',function(){
+  var input=$('#newDescriptionPreset'); var value=input.value.trim();
+  if(!value){ showToast('Enter a description first.'); input.focus(); return; }
+  if(!Array.isArray(DATA.settings.descriptionPresets)) DATA.settings.descriptionPresets=[];
+  if(DATA.settings.descriptionPresets.some(function(v){ return v.toLowerCase()===value.toLowerCase(); })){ showToast('That description is already saved.'); return; }
+  if(DATA.settings.descriptionPresets.length>=50){ showToast('You can save up to 50 descriptions.'); return; }
+  DATA.settings.descriptionPresets.push(value.slice(0,120)); saveData(); input.value=''; renderDescriptionPresetManager(); renderDescriptionPresetChips(); showToast('Description saved.');
+});
+$('#newDescriptionPreset').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); $('#addDescriptionPresetBtn').click(); } });
 
 function renderCustomCurrencyList(){
   var el=$('#customCurrencyList'); if(!el) return;
