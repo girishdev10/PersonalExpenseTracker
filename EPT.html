@@ -226,6 +226,17 @@ input.invalid, select.invalid{ border-color:var(--danger); }
 .ledger-row-actions{ display:flex; gap:4px; }
 .ledger-row-actions button{ border:none; background:none; cursor:pointer; color:var(--ink-faint); width:28px;height:28px; border-radius:8px; font-size:14px; }
 .ledger-row-actions button:hover{ background:var(--surface-2); color:var(--ink); }
+.tx-selection-bar{display:none;align-items:center;gap:8px;justify-content:space-between;margin-bottom:10px;padding:10px 12px;border:1px solid var(--accent);background:var(--accent-soft);border-radius:var(--radius-m);}
+.tx-selection-bar.active{display:flex;}
+.tx-selection-info{font-size:13px;font-weight:700;color:var(--ink);}
+.tx-selection-actions{display:flex;gap:6px;flex-wrap:wrap;}
+.ledger-row.tx-selectable{position:relative;touch-action:pan-y;}
+.ledger-row.tx-selected{background:var(--accent-soft);outline:2px solid var(--accent);outline-offset:-2px;}
+.tx-select-check{display:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);background:var(--surface);color:var(--accent);align-items:center;justify-content:center;font-size:14px;flex:0 0 auto;}
+.tx-selection-mode .tx-select-check{display:flex;}
+.tx-selection-mode .ledger-row-actions{display:none;}
+.tx-selection-hint{font-size:11px;color:var(--ink-faint);margin-top:6px;}
+@media(max-width:880px){.tx-selection-bar{position:sticky;top:58px;z-index:10;box-shadow:var(--shadow);}.tx-selection-hint{display:block;}}
 
 .empty-state{ text-align:center; padding:52px 20px; color:var(--ink-soft); }
 .empty-state .emoji{ font-size:38px; display:block; margin-bottom:10px; }
@@ -261,6 +272,13 @@ input.invalid, select.invalid{ border-color:var(--danger); }
 .cal-cell.lvl-low{ background:var(--accent-soft); }
 .cal-cell.lvl-med{ background:var(--gold-soft); }
 .cal-cell.lvl-high{ background:var(--danger-soft); }
+/* Daily financial result: blue for profit, red for loss, neutral for zero/no activity. */
+.cal-cell.day-profit{ background:#E4EFFB; border-color:#5B8FD8; }
+.cal-cell.day-profit .d,.cal-cell.day-profit .a{ color:#245EA8; }
+.cal-cell.day-loss{ background:var(--danger-soft); border-color:var(--danger); }
+.cal-cell.day-loss .d,.cal-cell.day-loss .a{ color:var(--danger); }
+[data-theme="dark"] .cal-cell.day-profit{ background:#20344B; border-color:#6EA0E8; }
+[data-theme="dark"] .cal-cell.day-profit .d,[data-theme="dark"] .cal-cell.day-profit .a{ color:#9CC4FF; }
 .legend{ display:flex; gap:14px; margin-top:14px; flex-wrap:wrap; }
 .legend span{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-soft); }
 .legend i{ width:11px;height:11px;border-radius:4px; display:inline-block; }
@@ -905,6 +923,15 @@ option {
           <button class="btn btn-ghost btn-sm" id="clearFiltersBtn">Clear filters</button>
         </div>
         <div class="card">
+          <div class="tx-selection-bar" id="txBulkBar">
+            <span class="tx-selection-info" id="txSelectedCount">0 selected</span>
+            <div class="tx-selection-actions">
+              <button class="btn btn-sm" id="txSelectAllBtn" type="button">Select all</button>
+              <button class="btn btn-sm btn-danger" id="txBulkDeleteBtn" type="button">🗑️ Delete selected</button>
+              <button class="btn btn-sm btn-ghost" id="txCancelSelectBtn" type="button">Cancel</button>
+            </div>
+          </div>
+          <div class="tx-selection-hint" id="txSelectionHint">On phone: long-press a transaction to enter selection mode, then swipe left/right or tap transactions to select them.</div>
           <div class="faint" id="txCount" style="margin-bottom:6px;"></div>
           <div class="ledger" id="txList"></div>
         </div>
@@ -1241,6 +1268,8 @@ var EDIT_ID = null;
 var TX_TYPE = 'expense';
 var CAL_YEAR, CAL_MONTH;
 var FILTERS = { q:'', type:'', category:'', payment:'', from:'', to:'', min:'', max:'', sort:'newest' };
+var TX_SELECTION_MODE = false;
+var SELECTED_TX_IDS = {};
 var REPORT_TAB = 'month';
 
 /* ============================================================
@@ -1664,8 +1693,10 @@ function txRowHTML(t){
   var sub = [formatDateShort(t.date), t.time, t.paymentMethod].filter(Boolean).join(' • ');
   var amtClass = t.type==='income' ? 'income' : '';
   var sign = t.type==='income' ? '+' : '-';
+  var selected = !!SELECTED_TX_IDS[t.id];
   return (
-    '<div class="ledger-row" data-id="'+t.id+'">' +
+    '<div class="ledger-row tx-selectable'+(selected?' tx-selected':'')+'" data-id="'+t.id+'">' +
+      '<span class="tx-select-check" aria-hidden="true">'+(selected?'✓':'')+'</span>' +
       '<div class="cat-icon">'+icon+'</div>' +
       '<div class="ledger-main">' +
         '<div class="ledger-title">'+esc(t.description || t.category)+'</div>' +
@@ -1679,37 +1710,93 @@ function txRowHTML(t){
     '</div>'
   );
 }
-function bindLedgerActions(container){
-  $all('.ledger-row', container).forEach(function(row){
-    row.querySelector('[data-act="edit"]').onclick = function(){ startEditTx(row.dataset.id); };
-    row.querySelector('[data-act="del"]').onclick = function(){ confirmDeleteTx(row.dataset.id); };
+function updateTxSelectionUI(){
+  var count = Object.keys(SELECTED_TX_IDS).length;
+  var bar = $('#txBulkBar');
+  var container = $('#txList');
+  if(bar) bar.classList.toggle('active', TX_SELECTION_MODE);
+  if(container) container.classList.toggle('tx-selection-mode', TX_SELECTION_MODE);
+  if($('#txSelectedCount')) $('#txSelectedCount').textContent = count + ' selected';
+  if($('#txSelectAllBtn')) $('#txSelectAllBtn').textContent = count ? 'Select all' : 'Select all';
+  if($('#txBulkDeleteBtn')) $('#txBulkDeleteBtn').disabled = count===0;
+  if($('#txSelectionHint')) $('#txSelectionHint').textContent = TX_SELECTION_MODE
+    ? 'Selection mode: tap or swipe left/right on transactions to select or unselect them.'
+    : 'On phone: long-press a transaction to enter selection mode, then swipe left/right or tap transactions to select them.';
+}
+function setTxSelected(id, selected){
+  if(selected) SELECTED_TX_IDS[id]=true; else delete SELECTED_TX_IDS[id];
+  var row = $('#txList') && $('#txList').querySelector('.ledger-row[data-id="'+CSS.escape(id)+'"]');
+  if(row){
+    row.classList.toggle('tx-selected', !!SELECTED_TX_IDS[id]);
+    var check=row.querySelector('.tx-select-check'); if(check) check.textContent=SELECTED_TX_IDS[id]?'✓':'';
+  }
+  updateTxSelectionUI();
+}
+function enterTxSelectionMode(id){
+  TX_SELECTION_MODE = true;
+  if(id) SELECTED_TX_IDS[id]=true;
+  renderTransactionsPage();
+}
+function exitTxSelectionMode(){
+  TX_SELECTION_MODE = false;
+  SELECTED_TX_IDS = {};
+  renderTransactionsPage();
+}
+function selectVisibleTransactions(){
+  var rows = $('#txList') ? $all('.ledger-row[data-id]', $('#txList')) : [];
+  rows.forEach(function(row){ SELECTED_TX_IDS[row.dataset.id]=true; });
+  updateTxSelectionUI();
+  rows.forEach(function(row){ row.classList.add('tx-selected'); var c=row.querySelector('.tx-select-check'); if(c)c.textContent='✓'; });
+}
+function bulkDeleteSelectedTransactions(){
+  var ids = Object.keys(SELECTED_TX_IDS);
+  if(!ids.length) return;
+  var selected = DATA.transactions.filter(function(t){return !!SELECTED_TX_IDS[t.id];});
+  var total = selected.reduce(function(sum,t){return sum + Number(t.amountMinor||0);},0);
+  confirmDialog({
+    title:'Delete '+ids.length+' transaction'+(ids.length===1?'':'s')+'?',
+    body:'This will permanently remove the selected transactions. Total: '+fmtMoney(total)+'. This action cannot be undone.',
+    okLabel:'Delete selected', danger:true
+  }, function(){
+    DATA.transactions = DATA.transactions.filter(function(t){return !SELECTED_TX_IDS[t.id];});
+    saveData();
+    TX_SELECTION_MODE=false; SELECTED_TX_IDS={};
+    refreshCurrentPage();
+    showToast(ids.length+' transaction'+(ids.length===1?'':'s')+' deleted');
   });
 }
-function confirmDeleteTx(id){
-  var t = getTx(id);
-  if(!t) return;
-  confirmDialog({
-    title:'Delete this transaction?',
-    body: fmtMoney(t.amountMinor) + ' — ' + esc(t.description||t.category) + '<br>' + esc(formatDateHuman(t.date)),
-    okLabel:'Delete', danger:true
-  }, function(){ deleteTx(id, true); });
-}
-function deleteTx(id, allowUndo){
-  var idx = DATA.transactions.findIndex(function(t){ return t.id===id; });
-  if(idx===-1) return;
-  var removed = DATA.transactions.splice(idx,1)[0];
-  saveData();
-  refreshCurrentPage();
-  if(allowUndo){
-    if(TRASH && TRASH.timeoutId) clearTimeout(TRASH.timeoutId);
-    TRASH = { tx: removed };
-    showToast('Transaction deleted', 'UNDO', function(){
-      DATA.transactions.push(removed);
-      saveData();
-      refreshCurrentPage();
-      TRASH = null;
-    }, 6000);
-  }
+function bindLedgerActions(container){
+  $all('.ledger-row', container).forEach(function(row){
+    var longPressTimer=null, startX=0, startY=0, moved=false;
+    var clearPress=function(){ if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } };
+    row.querySelector('[data-act="edit"]').onclick = function(e){ e.stopPropagation(); if(!TX_SELECTION_MODE) startEditTx(row.dataset.id); };
+    row.querySelector('[data-act="del"]').onclick = function(e){ e.stopPropagation(); if(!TX_SELECTION_MODE) confirmDeleteTx(row.dataset.id); };
+    row.addEventListener('click', function(e){
+      if(TX_SELECTION_MODE && !e.target.closest('button')) setTxSelected(row.dataset.id, !SELECTED_TX_IDS[row.dataset.id]);
+    });
+    row.addEventListener('touchstart', function(e){
+      if(!e.touches || !e.touches[0]) return;
+      startX=e.touches[0].clientX; startY=e.touches[0].clientY; moved=false; clearPress();
+      longPressTimer=setTimeout(function(){ enterTxSelectionMode(row.dataset.id); }, 600);
+    }, {passive:true});
+    row.addEventListener('touchmove', function(e){
+      if(!e.touches || !e.touches[0]) return;
+      var dx=e.touches[0].clientX-startX, dy=e.touches[0].clientY-startY;
+      if(Math.abs(dx)>10 || Math.abs(dy)>10){ moved=true; clearPress(); }
+    }, {passive:true});
+    row.addEventListener('touchend', function(e){
+      clearPress();
+      if(!TX_SELECTION_MODE || !moved || !e.changedTouches || !e.changedTouches[0]) return;
+      var dx=e.changedTouches[0].clientX-startX;
+      if(Math.abs(dx)>=55){ setTxSelected(row.dataset.id, !SELECTED_TX_IDS[row.dataset.id]); }
+    }, {passive:true});
+    row.addEventListener('touchcancel', clearPress, {passive:true});
+    row.addEventListener('contextmenu', function(e){
+      e.preventDefault();
+      if(!TX_SELECTION_MODE) enterTxSelectionMode(row.dataset.id);
+    });
+  });
+  updateTxSelectionUI();
 }
 function refreshCurrentPage(){ navigate(CURRENT_ROUTE); }
 
@@ -1943,6 +2030,7 @@ function renderTransactionsPage(){
   $('#f-payment').value = FILTERS.payment; $('#f-from').value = FILTERS.from; $('#f-to').value = FILTERS.to;
   $('#f-min').value = FILTERS.min; $('#f-max').value = FILTERS.max; $('#f-sort').value = FILTERS.sort;
   var list = applyFiltersAndSort(DATA.transactions);
+  Object.keys(SELECTED_TX_IDS).forEach(function(id){ if(!DATA.transactions.some(function(t){return t.id===id;})) delete SELECTED_TX_IDS[id]; });
   $('#txCount').textContent = list.length + ' transaction' + (list.length===1?'':'s');
   var container = $('#txList');
   if(!list.length){
@@ -1981,28 +2069,31 @@ function renderCalendar(){
   $('#calDow').innerHTML = DOW_LABELS.map(function(d){ return '<div class="cal-dow">'+d+'</div>'; }).join('');
 
   var dim = daysInMonth(CAL_YEAR, CAL_MONTH);
-  var totals = {};
+  var daily = {};
   for(var d=1; d<=dim; d++){
     var iso = CAL_YEAR+'-'+pad2(CAL_MONTH+1)+'-'+pad2(d);
-    totals[iso] = sumTx(DATA.transactions.filter(function(t){ return t.date===iso; }), 'expense');
+    var dayTx = DATA.transactions.filter(function(t){ return t.date===iso; });
+    var income = sumTx(dayTx,'income');
+    var expense = sumTx(dayTx,'expense');
+    daily[iso] = { income:income, expense:expense, net:income-expense };
   }
-  var vals = Object.values(totals).filter(function(v){return v>0;});
-  var max = vals.length ? Math.max.apply(null, vals) : 0;
 
   var firstDow = (new Date(CAL_YEAR, CAL_MONTH, 1).getDay() + 6) % 7; // Monday=0
   var cells = [];
   for(var i=0;i<firstDow;i++) cells.push('<div class="cal-cell empty"></div>');
   for(d=1; d<=dim; d++){
-    iso = CAL_YEAR+'-'+pad2(CAL_MONTH+1)+'-'+pad2(d);
-    var amt = totals[iso];
-    var lvl = 'none';
-    if(amt>0 && max>0){
-      var ratio = amt/max;
-      lvl = ratio>0.66 ? 'high' : ratio>0.33 ? 'med' : 'low';
-    }
+    var iso = CAL_YEAR+'-'+pad2(CAL_MONTH+1)+'-'+pad2(d);
+    var info = daily[iso];
+    var hasActivity = info.income>0 || info.expense>0;
+    var resultClass = '';
+    // Blue only when the day is profitable; red only when it is a loss.
+    // No color is applied when there is no activity or the result is exactly zero.
+    if(hasActivity && info.net>0) resultClass=' day-profit';
+    else if(hasActivity && info.net<0) resultClass=' day-loss';
     var isToday = iso===todayISO();
-    cells.push('<div class="cal-cell lvl-'+lvl+(isToday?' today':'')+'" data-date="'+iso+'">' +
-      '<span class="d">'+d+'</span>' + (amt>0 ? '<span class="a">'+fmtMoney(amt)+'</span>' : '') + '</div>');
+    var display = info.net!==0 ? fmtMoney(Math.abs(info.net)) : '';
+    cells.push('<div class="cal-cell'+resultClass+(isToday?' today':'')+'" data-date="'+iso+'">' +
+      '<span class="d">'+d+'</span>' + (display ? '<span class="a">'+(info.net>0?'+':'-')+display+'</span>' : '') + '</div>');
   }
   $('#calGrid').innerHTML = cells.join('');
   $all('.cal-cell[data-date]').forEach(function(c){ c.addEventListener('click', function(){ openDayModal(c.dataset.date); }); });
@@ -2320,40 +2411,15 @@ $('#saveBudgetBtn').addEventListener('click', function(){
 /* ============================================================
    RECURRING
    ============================================================ */
-function renderRecurringPage(){
-  var list = DATA.recurring;
-  var el = $('#recurringList');
-  if(!list.length){ el.innerHTML = emptyStateHTML('🔁','No recurring transactions','Set up rent, subscriptions or bills to auto-add each period.', null, ''); return; }
-  el.innerHTML = list.map(function(r){
-    var icon = categoryIcon(r.type, r.category);
-    return '<div class="ledger-row" data-id="'+r.id+'">' +
-      '<div class="cat-icon">'+icon+'</div>' +
-      '<div class="ledger-main"><div class="ledger-title">'+esc(r.name)+'</div>' +
-      '<div class="ledger-sub">'+esc(r.frequency)+(r.interval>1?' ×'+r.interval:'')+' • next: '+esc(r.lastGenerated?nextDateForRecurring(r,r.lastGenerated):r.startDate)+(r.paused?' • paused':'')+'</div></div>' +
-      '<div class="ledger-amt num '+(r.type==='income'?'income':'')+'">'+(r.type==='income'?'+':'-')+fmtMoney(r.amountMinor)+'</div>' +
-      '<div class="ledger-row-actions">' +
-        '<button data-act="pause" aria-label="Pause/resume">'+(r.paused?'▶️':'⏸️')+'</button>' +
-        '<button data-act="del" aria-label="Delete">🗑️</button>' +
-      '</div></div>';
-  }).join('');
-  $all('.ledger-row', el).forEach(function(row){
-    row.querySelector('[data-act="pause"]').onclick = function(){
-      var r = DATA.recurring.find(function(x){return x.id===row.dataset.id;});
-      r.paused = !r.paused; saveData(); renderRecurringPage();
-    };
-    row.querySelector('[data-act="del"]').onclick = function(){
-      confirmDialog({ title:'Delete recurring item?', body:'Past generated transactions will remain — only the recurring rule is removed.', okLabel:'Delete', danger:true }, function(){
-        DATA.recurring = DATA.recurring.filter(function(x){return x.id!==row.dataset.id;});
-        saveData(); renderRecurringPage();
-      });
-    };
-  });
-}
-$('#addRecurringBtn').addEventListener('click', function(){
-  var expCats = categoriesFor('expense'), incCats = categoriesFor('income');
+function recurringFormModal(existing){
+  var isEdit = !!existing;
+  var initialType = existing ? existing.type : 'expense';
   openModal(
-    '<div class="modal-head"><h2>New recurring transaction</h2></div>' +
-    '<div class="tabs" id="rtType" style="margin-bottom:14px;"><button class="tab active" data-t="expense">Expense</button><button class="tab" data-t="income">Income</button></div>' +
+    '<div class="modal-head"><h2>'+(isEdit?'Edit recurring transaction':'New recurring transaction')+'</h2></div>' +
+    '<div class="tabs" id="rtType" style="margin-bottom:14px;">' +
+      '<button class="tab '+(initialType==='expense'?'active':'')+'" data-t="expense">Expense</button>' +
+      '<button class="tab '+(initialType==='income'?'active':'')+'" data-t="income">Income</button>' +
+    '</div>' +
     '<div class="field"><label>Name</label><input id="r-name" placeholder="e.g. Rent, Netflix"></div>' +
     '<div class="row">' +
       '<div class="field"><label>Amount</label><input id="r-amount" inputmode="decimal"></div>' +
@@ -2361,36 +2427,104 @@ $('#addRecurringBtn').addEventListener('click', function(){
     '</div>' +
     '<div class="row">' +
       '<div class="field"><label>Payment method</label><select id="r-payment">'+DATA.paymentMethods.map(function(p){return '<option>'+esc(p)+'</option>';}).join('')+'</select></div>' +
-      '<div class="field"><label>Frequency</label><select id="r-freq"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly" selected>Monthly</option><option value="yearly">Yearly</option></select></div>' +
+      '<div class="field"><label>Frequency</label><select id="r-freq"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></div>' +
     '</div>' +
     '<div class="row">' +
-      '<div class="field"><label>Start date</label><input id="r-start" type="date" value="'+todayISO()+'"></div>' +
+      '<div class="field"><label>Start date</label><input id="r-start" type="date"></div>' +
       '<div class="field"><label>End date (optional)</label><input id="r-end" type="date"></div>' +
     '</div>' +
-    '<div class="field" id="r-lastday-field"><label><input type="checkbox" id="r-lastday" style="width:auto; margin-right:6px;">If the day doesn\'t exist in a month, use the last day of that month</label></div>' +
-    '<div class="modal-actions"><button class="btn btn-ghost" id="r-cancel">Cancel</button><button class="btn btn-primary" id="r-save">Create</button></div>',
+    '<div class="field"><label><input type="checkbox" id="r-lastday" style="width:auto; margin-right:6px;">If the day doesn\'t exist in a month, use the last day of that month</label></div>' +
+    '<div class="modal-actions"><button class="btn btn-ghost" id="r-cancel">Cancel</button><button class="btn btn-primary" id="r-save">'+(isEdit?'Save changes':'Create')+'</button></div>',
     { wide:true }
   );
-  var rType = 'expense';
-  function fillCats(){ $('#r-category').innerHTML = categoriesFor(rType).map(function(c){return '<option value="'+esc(c.name)+'">'+c.icon+' '+esc(c.name)+'</option>';}).join(''); }
+
+  var rType = initialType;
+  function fillCats(){
+    var cats = categoriesFor(rType);
+    $('#r-category').innerHTML = cats.map(function(c){return '<option value="'+esc(c.name)+'">'+c.icon+' '+esc(c.name)+'</option>';}).join('');
+    if(existing && existing.category) $('#r-category').value=existing.category;
+  }
   fillCats();
+  if(existing){
+    $('#r-name').value=existing.name||'';
+    $('#r-amount').value=fromMinor(existing.amountMinor);
+    $('#r-payment').value=existing.paymentMethod||'';
+    $('#r-freq').value=existing.frequency||'monthly';
+    $('#r-start').value=existing.startDate||todayISO();
+    $('#r-end').value=existing.endDate||'';
+    $('#r-lastday').checked=!!existing.lastDayMode;
+  } else {
+    $('#r-start').value=todayISO();
+  }
   $all('#rtType .tab').forEach(function(b){ b.onclick=function(){ rType=b.dataset.t; $all('#rtType .tab').forEach(function(x){x.classList.toggle('active',x===b);}); fillCats(); }; });
-  $('#r-cancel').onclick = closeModal;
-  $('#r-save').onclick = function(){
-    var amt = toMinor($('#r-amount').value);
-    var name = $('#r-name').value.trim();
-    var start = $('#r-start').value;
-    if(!name || isNaN(amt) || amt<=0 || !isValidISODate(start)){ showToast('Please fill in a name, valid amount and start date.'); return; }
-    DATA.recurring.push({
-      id: uid('rec'), name:name, type:rType, amountMinor:amt, category:$('#r-category').value,
-      paymentMethod:$('#r-payment').value, frequency:$('#r-freq').value, interval:1,
-      startDate:start, endDate:$('#r-end').value||null, lastDayMode:$('#r-lastday').checked,
-      lastGenerated:null, paused:false, description:name
-    });
-    saveData(); closeModal(); runRecurringEngine(); renderRecurringPage();
-    showToast('Recurring transaction created');
+  $('#r-cancel').onclick=closeModal;
+  $('#r-save').onclick=function(){
+    var amt=toMinor($('#r-amount').value);
+    var name=$('#r-name').value.trim();
+    var startDate=$('#r-start').value;
+    var endDate=$('#r-end').value||null;
+    if(!name || isNaN(amt) || amt<=0 || !isValidISODate(startDate)){ showToast('Please fill in a name, valid amount and start date.'); return; }
+    if(endDate && (!isValidISODate(endDate) || endDate<startDate)){ showToast('End date must be valid and not before the start date.'); return; }
+    if(isEdit){
+      existing.name=name; existing.type=rType; existing.amountMinor=amt; existing.category=$('#r-category').value;
+      existing.paymentMethod=$('#r-payment').value; existing.frequency=$('#r-freq').value; existing.startDate=startDate;
+      existing.endDate=endDate; existing.lastDayMode=$('#r-lastday').checked; existing.description=name;
+      // Keep lastGenerated so editing a rule does not recreate already-generated transactions.
+      saveData(); closeModal(); runRecurringEngine(); renderRecurringPage(); showToast('Recurring transaction updated');
+    } else {
+      DATA.recurring.push({
+        id:uid('rec'), name:name, type:rType, amountMinor:amt, category:$('#r-category').value,
+        paymentMethod:$('#r-payment').value, frequency:$('#r-freq').value, interval:1,
+        startDate:startDate, endDate:endDate, lastDayMode:$('#r-lastday').checked,
+        lastGenerated:null, paused:false, description:name
+      });
+      saveData(); closeModal(); runRecurringEngine(); renderRecurringPage(); showToast('Recurring transaction created');
+    }
   };
-});
+}
+
+function renderRecurringPage(){
+  var list=DATA.recurring;
+  var el=$('#recurringList');
+  if(!list.length){ el.innerHTML=emptyStateHTML('🔁','No recurring transactions','Set up rent, subscriptions or bills to auto-add each period.',null,''); return; }
+  el.innerHTML=list.map(function(r){
+    var icon=categoryIcon(r.type,r.category);
+    return '<div class="ledger-row" data-id="'+r.id+'">' +
+      '<div class="cat-icon">'+icon+'</div>' +
+      '<div class="ledger-main"><div class="ledger-title">'+esc(r.name)+'</div>' +
+      '<div class="ledger-sub">'+esc(r.frequency)+(r.interval>1?' ×'+r.interval:'')+' • next: '+esc(r.lastGenerated?nextDateForRecurring(r,r.lastGenerated):r.startDate)+(r.paused?' • paused':'')+'</div></div>' +
+      '<div class="ledger-amt num '+(r.type==='income'?'income':'')+'">'+(r.type==='income'?'+':'-')+fmtMoney(r.amountMinor)+'</div>' +
+      '<div class="ledger-row-actions">' +
+        '<button data-act="edit" aria-label="Edit" title="Edit">✏️</button>' +
+        '<button data-act="pause" aria-label="Pause/resume" title="Pause/resume">'+(r.paused?'▶️':'⏸️')+'</button>' +
+        '<button data-act="del" aria-label="Delete" title="Delete">🗑️</button>' +
+      '</div></div>';
+  }).join('');
+  $all('.ledger-row',el).forEach(function(row){
+    row.querySelector('[data-act="edit"]').onclick=function(){
+      var r=DATA.recurring.find(function(x){return x.id===row.dataset.id;});
+      if(r) recurringFormModal(r);
+    };
+    row.querySelector('[data-act="pause"]').onclick=function(){
+      var r=DATA.recurring.find(function(x){return x.id===row.dataset.id;});
+      if(r){ r.paused=!r.paused; saveData(); renderRecurringPage(); }
+    };
+    row.querySelector('[data-act="del"]').onclick=function(){
+      var r=DATA.recurring.find(function(x){return x.id===row.dataset.id;});
+      if(!r) return;
+      var generatedCount=DATA.transactions.filter(function(t){return t.recurringId===r.id;}).length;
+      confirmDialog({ title:'Delete recurring item?', body:'This will remove the recurring rule and '+generatedCount+' transaction'+(generatedCount===1?'':'s')+' generated by it. This cannot be undone.', okLabel:'Delete', danger:true }, function(){
+        DATA.recurring=DATA.recurring.filter(function(x){return x.id!==r.id;});
+        // A recurring rule owns its auto-generated transactions. Remove those too.
+        DATA.transactions=DATA.transactions.filter(function(t){return t.recurringId!==r.id;});
+        saveData(); renderRecurringPage();
+        showToast('Recurring rule and generated transactions deleted');
+      });
+    };
+  });
+}
+
+$('#addRecurringBtn').addEventListener('click', function(){ recurringFormModal(null); });
 
 /* ============================================================
    BACKUP / RESTORE
