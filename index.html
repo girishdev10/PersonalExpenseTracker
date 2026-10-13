@@ -874,12 +874,183 @@ option {
   #lockScreen .orbit-two{animation:none;}
 }
 
+
+/* ---------- Animated finance-inspired login background ---------- */
+#lockScreen .finance-motion-bg{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;user-select:none;color:var(--accent);}
+#lockScreen .finance-motion-bg::before{content:"";position:absolute;inset:0;opacity:.36;background-image:radial-gradient(color-mix(in srgb,var(--accent) 22%,transparent) .8px,transparent .8px);background-size:25px 25px;mask-image:radial-gradient(ellipse at center,black,transparent 76%);animation:finance-dots-drift 28s linear infinite;}
+#lockScreen .finance-float{position:absolute;will-change:transform;}
+#lockScreen .finance-coin{display:flex;align-items:center;justify-content:center;border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));background:color-mix(in srgb,var(--surface) 78%,transparent);box-shadow:0 12px 32px -16px color-mix(in srgb,var(--accent) 65%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:50%;font-weight:800;}
+#lockScreen .finance-coin-a{width:58px;height:58px;left:10%;top:23%;font-size:25px;animation:finance-drift-a 8s ease-in-out infinite;}
+#lockScreen .finance-coin-b{width:43px;height:43px;right:13%;top:18%;font-size:21px;color:var(--gold);animation:finance-drift-b 7s ease-in-out infinite;}
+#lockScreen .finance-coin-c{width:36px;height:36px;right:18%;bottom:18%;font-size:17px;animation:finance-drift-c 9s ease-in-out infinite;}
+#lockScreen .finance-mini-card{width:138px;padding:12px 13px;border-radius:14px;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));background:color-mix(in srgb,var(--surface) 82%,transparent);box-shadow:0 15px 36px -22px rgba(15,35,25,.4);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
+#lockScreen .finance-mini-card span{display:block;font-size:8px;letter-spacing:.13em;font-weight:800;color:var(--ink-faint);}
+#lockScreen .finance-mini-card b{display:block;font-size:21px;line-height:1.3;color:var(--accent);}
+#lockScreen .finance-mini-card i{display:block;height:4px;width:70%;margin-top:7px;border-radius:9px;background:var(--accent-soft);overflow:hidden;position:relative;}
+#lockScreen .finance-mini-card i::after{content:"";display:block;width:45%;height:100%;border-radius:9px;background:var(--accent);animation:finance-progress 3.8s ease-in-out infinite alternate;}
+#lockScreen .finance-mini-card-a{left:8%;bottom:23%;transform:rotate(-7deg);animation:finance-card-a 10s ease-in-out infinite;}
+#lockScreen .finance-mini-card-b{right:8%;top:39%;transform:rotate(6deg);animation:finance-card-b 11s ease-in-out infinite;}
+#lockScreen .finance-mini-card-b b{color:var(--gold);}
+#lockScreen .finance-mini-card-b i{background:var(--gold-soft);}
+#lockScreen .finance-mini-card-b i::after{background:var(--gold);animation-delay:-1.5s;}
+#lockScreen .finance-chart-card{position:absolute;left:calc(50% - 370px);bottom:8%;width:225px;padding:13px 13px 8px;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));border-radius:17px;background:color-mix(in srgb,var(--surface) 80%,transparent);box-shadow:0 18px 42px -26px rgba(15,35,25,.4);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);animation:finance-chart-float 9s ease-in-out infinite;}
+#lockScreen .finance-chart-label{font-size:8px;letter-spacing:.12em;font-weight:800;color:var(--ink-faint);}
+#lockScreen .finance-chart-card svg{width:100%;height:auto;display:block;margin-top:6px;overflow:visible;}
+#lockScreen .finance-chart-grid{fill:none;stroke:var(--line);stroke-width:1;stroke-dasharray:3 5;}
+#lockScreen .finance-chart-area{fill:color-mix(in srgb,var(--accent) 13%,transparent);}
+#lockScreen .finance-chart-line{fill:none;stroke:var(--accent);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:330;stroke-dashoffset:330;animation:finance-line-draw 4.8s ease-in-out infinite;}
+#lockScreen .finance-chart-point{fill:var(--gold);stroke:var(--surface);stroke-width:2;animation:finance-point-pulse 2.2s ease-in-out infinite;}
+#lockScreen .finance-budget-ring{position:absolute;right:calc(50% - 375px);bottom:12%;width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:5px solid var(--accent-soft);border-top-color:var(--accent);color:var(--accent);font-size:23px;font-weight:800;background:color-mix(in srgb,var(--surface) 82%,transparent);box-shadow:0 12px 30px -20px var(--accent);animation:finance-ring-spin 8s linear infinite,finance-ring-float 6s ease-in-out infinite;}
+#lockScreen .finance-budget-ring span{animation:finance-ring-counterspin 8s linear infinite;}
+#lockScreen .finance-bar-card{position:absolute;right:12%;bottom:35%;height:70px;width:90px;display:flex;align-items:flex-end;justify-content:center;gap:5px;padding:12px 10px 9px;border:1px solid var(--line);border-radius:13px;background:color-mix(in srgb,var(--surface) 76%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:finance-drift-b 8s ease-in-out infinite;}
+#lockScreen .finance-bar-card i{width:7px;border-radius:5px 5px 2px 2px;background:var(--accent);opacity:.75;transform-origin:bottom;animation:finance-bars 1.8s ease-in-out infinite alternate;}
+#lockScreen .finance-bar-card i:nth-child(1){height:20%;animation-delay:-.3s;}#lockScreen .finance-bar-card i:nth-child(2){height:42%;animation-delay:-.8s;}#lockScreen .finance-bar-card i:nth-child(3){height:32%;animation-delay:-1.1s;}#lockScreen .finance-bar-card i:nth-child(4){height:70%;animation-delay:-.5s;}#lockScreen .finance-bar-card i:nth-child(5){height:50%;animation-delay:-1.4s;}#lockScreen .finance-bar-card i:nth-child(6){height:88%;animation-delay:-.7s;}#lockScreen .finance-bar-card i:nth-child(7){height:64%;animation-delay:-1s;}
+#lockScreen .finance-spark{position:absolute;color:var(--gold);font-size:24px;animation:finance-sparkle 3.4s ease-in-out infinite;}
+#lockScreen .finance-spark-a{left:27%;top:18%;}#lockScreen .finance-spark-b{right:27%;bottom:27%;color:var(--accent);animation-delay:-1.6s;}#lockScreen .finance-spark-c{left:20%;bottom:14%;font-size:36px;animation-delay:-.8s;}
+@keyframes finance-drift-a{0%,100%{transform:translate3d(0,0,0) rotate(-8deg)}50%{transform:translate3d(10px,-18px,0) rotate(8deg)}}
+@keyframes finance-drift-b{0%,100%{transform:translate3d(0,0,0) rotate(6deg)}50%{transform:translate3d(-9px,14px,0) rotate(-7deg)}}
+@keyframes finance-drift-c{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,-12px,0)}}
+@keyframes finance-card-a{0%,100%{transform:translateY(0) rotate(-7deg)}50%{transform:translateY(-12px) rotate(-3deg)}}
+@keyframes finance-card-b{0%,100%{transform:translateY(0) rotate(6deg)}50%{transform:translateY(10px) rotate(2deg)}}
+@keyframes finance-chart-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes finance-ring-spin{to{transform:rotate(360deg)}}@keyframes finance-ring-counterspin{to{transform:rotate(-360deg)}}
+@keyframes finance-ring-float{0%,100%{translate:0 0}50%{translate:0 -8px}}
+@keyframes finance-progress{from{width:28%}to{width:92%}}
+@keyframes finance-line-draw{0%{stroke-dashoffset:330}45%,80%{stroke-dashoffset:0}100%{stroke-dashoffset:-330}}
+@keyframes finance-point-pulse{0%,100%{r:3;opacity:.75}50%{r:5;opacity:1}}
+@keyframes finance-bars{from{transform:scaleY(.55);opacity:.45}to{transform:scaleY(1);opacity:.95}}
+@keyframes finance-sparkle{0%,100%{transform:scale(.7) rotate(0);opacity:.45}50%{transform:scale(1.2) rotate(22deg);opacity:1}}
+@keyframes finance-dots-drift{from{background-position:0 0}to{background-position:100px 60px}}
+@media(max-width:1100px){#lockScreen .finance-chart-card{left:3%;bottom:5%;width:190px;}#lockScreen .finance-budget-ring{right:4%;bottom:8%;width:58px;height:58px;}#lockScreen .finance-mini-card-a{left:3%;bottom:29%;}#lockScreen .finance-mini-card-b{right:3%;top:35%;}#lockScreen .finance-bar-card{right:5%;bottom:27%;}#lockScreen .finance-coin-a{left:5%;}#lockScreen .finance-coin-b{right:6%;}}
+@media(max-width:700px){#lockScreen .finance-mini-card{width:105px;padding:9px;}#lockScreen .finance-mini-card span{font-size:7px;}#lockScreen .finance-mini-card b{font-size:17px;}#lockScreen .finance-mini-card-a{left:2%;bottom:7%;}#lockScreen .finance-mini-card-b{right:2%;top:9%;}#lockScreen .finance-chart-card{left:2%;bottom:2%;width:145px;opacity:.62;}#lockScreen .finance-budget-ring{right:3%;bottom:4%;width:43px;height:43px;font-size:15px;border-width:4px;}#lockScreen .finance-bar-card{right:3%;bottom:22%;transform:scale(.8);transform-origin:right bottom;opacity:.65;}#lockScreen .finance-coin-a{left:4%;top:16%;width:39px;height:39px;font-size:18px;}#lockScreen .finance-coin-b{right:6%;top:24%;width:32px;height:32px;font-size:16px;}#lockScreen .finance-coin-c{right:11%;bottom:16%;width:28px;height:28px;font-size:14px;}#lockScreen .finance-spark-a{left:18%;top:35%;}#lockScreen .finance-spark-b{right:15%;bottom:37%;}#lockScreen .finance-spark-c{display:none;}}
+@media(prefers-reduced-motion:reduce){#lockScreen .finance-motion-bg *,#lockScreen .finance-motion-bg::before{animation:none !important;}#lockScreen .finance-chart-line{stroke-dashoffset:0;}}
+
+
+/* ---------- Animated finance scene for first-launch welcome ---------- */
+#onboarding.overlay-screen{isolation:isolate;overflow:hidden;background:radial-gradient(ellipse at 18% 18%,color-mix(in srgb,var(--accent) 14%,transparent),transparent 36%),radial-gradient(ellipse at 83% 84%,color-mix(in srgb,var(--gold) 13%,transparent),transparent 34%),var(--bg);}
+#onboarding .onboarding-finance-scene{position:absolute;inset:0;overflow:hidden;pointer-events:none;user-select:none;color:var(--accent);z-index:0;}
+#onboarding .onboarding-finance-scene::before{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 25%,color-mix(in srgb,var(--accent) 4%,transparent) 50%,transparent 72%);background-size:220% 100%;animation:ob-shimmer 15s linear infinite;}
+#onboarding .ob-scene-dots{position:absolute;inset:0;opacity:.32;background-image:radial-gradient(color-mix(in srgb,var(--accent) 28%,transparent) 1px,transparent 1px);background-size:26px 26px;mask-image:radial-gradient(ellipse at center,black,transparent 78%);animation:ob-dots 32s linear infinite;}
+#onboarding .ob-orb{position:absolute;border-radius:50%;border:1px solid color-mix(in srgb,var(--accent) 13%,transparent);}
+#onboarding .ob-orb-a{width:min(50vw,600px);height:min(50vw,600px);left:-15%;top:-27%;animation:ob-orbit-drift 18s ease-in-out infinite;}
+#onboarding .ob-orb-b{width:min(43vw,510px);height:min(43vw,510px);right:-14%;bottom:-28%;border-color:color-mix(in srgb,var(--gold) 16%,transparent);animation:ob-orbit-drift 22s ease-in-out infinite reverse;}
+#onboarding .ob-wallet-card,#onboarding .ob-budget-card,#onboarding .ob-category-card,#onboarding .ob-money-chip{position:absolute;border:1px solid color-mix(in srgb,var(--accent) 17%,var(--line));background:color-mix(in srgb,var(--surface) 80%,transparent);box-shadow:0 22px 55px -35px rgba(20,40,30,.45);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:18px;}
+#onboarding .ob-wallet-card{width:258px;left:clamp(22px,calc(50% - 650px),13%);top:calc(50% - 205px);padding:16px 17px 11px;border-radius:20px;box-shadow:0 28px 70px -38px rgba(20,40,30,.42),0 4px 14px rgba(20,40,30,.04);animation:ob-card-float-a 9s ease-in-out infinite;}
+#onboarding .ob-wallet-top{display:flex;justify-content:space-between;align-items:center;font-size:8px;letter-spacing:.13em;font-weight:850;color:var(--ink-faint);}
+#onboarding .ob-wallet-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);}
+#onboarding .ob-wallet-amount{font:700 22px var(--font-serif);color:var(--ink);margin:11px 0 2px;white-space:nowrap;letter-spacing:-.025em;}
+#onboarding .ob-wallet-amount small{font:700 10px var(--font-sans);color:var(--accent);background:var(--accent-soft);padding:4px 6px;border-radius:7px;vertical-align:middle;}
+#onboarding .ob-wallet-card svg{display:block;width:100%;height:auto;margin-top:7px;overflow:visible;}
+#onboarding .ob-chart-grid{stroke:var(--line);stroke-width:1;stroke-dasharray:3 5;fill:none;}
+#onboarding .ob-chart-area{fill:url(#obChartFill);}
+#onboarding .ob-chart-line{stroke:var(--accent);stroke-width:3;stroke-linecap:round;fill:none;stroke-dasharray:360;stroke-dashoffset:360;animation:ob-chart-draw 5s ease-in-out infinite;}
+#onboarding .ob-chart-end{fill:var(--gold);stroke:var(--surface);stroke-width:2;animation:ob-pulse 2s ease-in-out infinite;}
+#onboarding .ob-chart-legend{display:flex;gap:14px;color:var(--ink-faint);font-size:9px;margin-top:2px;}
+#onboarding .ob-chart-legend span{display:flex;align-items:center;gap:5px;}
+#onboarding .ob-chart-legend i{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+#onboarding .ob-chart-legend span+span i{background:var(--gold);}
+#onboarding .ob-budget-card{right:calc(50% - 490px);top:calc(50% - 170px);display:flex;align-items:center;gap:11px;padding:13px 15px;animation:ob-card-float-b 8s ease-in-out infinite;}
+#onboarding .ob-budget-ring{width:39px;height:39px;border-radius:50%;border:4px solid var(--accent-soft);border-top-color:var(--accent);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:900;animation:ob-ring-spin 7s linear infinite;flex:0 0 auto;}
+#onboarding .ob-budget-ring span{animation:ob-ring-counter 7s linear infinite;}
+#onboarding .ob-budget-card b,#onboarding .ob-budget-card small{display:block;white-space:nowrap;}
+#onboarding .ob-budget-card b{font-size:11px;color:var(--ink);}
+#onboarding .ob-budget-card small{font-size:10px;color:var(--ink-faint);margin-top:3px;}
+#onboarding .ob-category-card{right:calc(50% - 490px);bottom:calc(50% - 245px);width:220px;padding:14px 15px;animation:ob-card-float-a 10s ease-in-out infinite reverse;}
+#onboarding .ob-category-title{display:block;font-size:8px;font-weight:850;letter-spacing:.12em;color:var(--ink-faint);margin-bottom:9px;}
+#onboarding .ob-category-card>div{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:10px;color:var(--ink-soft);}
+#onboarding .ob-category-card>div b{height:5px;border-radius:9px;background:var(--accent-soft);margin-left:auto;width:58px;position:relative;overflow:hidden;}
+#onboarding .ob-category-card>div b::after{content:"";display:block;height:100%;width:65%;background:var(--accent);border-radius:9px;animation:ob-progress 3.5s ease-in-out infinite alternate;}
+#onboarding .ob-category-card>div:nth-of-type(2) b::after{width:42%;background:var(--gold);animation-delay:-1s;}
+#onboarding .ob-category-card>div:nth-of-type(3) b::after{width:78%;animation-delay:-2s;}
+#onboarding .ob-cat-dot{width:8px;height:8px;border-radius:3px;background:var(--accent);}
+#onboarding .cat-home{background:var(--gold);}
+#onboarding .cat-travel{background:#7B91D8;}
+#onboarding .ob-money-chip{display:flex;align-items:center;gap:9px;padding:10px 13px;border-radius:14px;}
+#onboarding .ob-money-chip>span{width:29px;height:29px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);font-weight:900;}
+#onboarding .ob-money-chip b{font-size:10px;white-space:nowrap;color:var(--ink-soft);}
+#onboarding .ob-money-chip-a{left:calc(50% - 450px);bottom:calc(50% - 215px);animation:ob-chip-float 7s ease-in-out infinite;}
+#onboarding .ob-money-chip-b{right:calc(50% - 470px);bottom:calc(50% - 230px);animation:ob-chip-float 8s ease-in-out infinite reverse;}
+#onboarding .ob-money-chip-b>span{background:var(--gold-soft);color:var(--gold);}
+#onboarding .ob-floating-coin{position:absolute;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:850;background:color-mix(in srgb,var(--surface) 82%,transparent);border:1px solid color-mix(in srgb,var(--accent) 25%,var(--line));box-shadow:0 12px 28px -18px var(--accent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+#onboarding .ob-coin-a{left:17%;top:20%;width:52px;height:52px;font-size:23px;animation:ob-coin-a 8s ease-in-out infinite;}
+#onboarding .ob-coin-b{right:18%;top:19%;width:37px;height:37px;color:var(--gold);font-size:20px;animation:ob-coin-b 7s ease-in-out infinite;}
+#onboarding .ob-coin-c{left:20%;bottom:18%;width:34px;height:34px;font-size:17px;animation:ob-coin-a 9s ease-in-out infinite reverse;}
+#onboarding .ob-scene-spark{position:absolute;color:var(--gold);font-size:23px;animation:ob-sparkle 3.6s ease-in-out infinite;}
+#onboarding .ob-spark-a{left:31%;top:27%;}
+#onboarding .ob-spark-b{right:30%;top:18%;color:var(--accent);animation-delay:-1.7s;}
+#onboarding .ob-spark-c{right:23%;bottom:18%;animation-delay:-.9s;}
+#onboarding .onboarding-card{z-index:2;}
+@keyframes ob-chart-draw{0%{stroke-dashoffset:360}45%,80%{stroke-dashoffset:0}100%{stroke-dashoffset:-360}}
+@keyframes ob-pulse{0%,100%{r:3;opacity:.7}50%{r:5;opacity:1}}
+@keyframes ob-ring-spin{to{transform:rotate(360deg)}}@keyframes ob-ring-counter{to{transform:rotate(-360deg)}}
+@keyframes ob-progress{from{transform:translateX(-35%)}to{transform:translateX(35%)}}
+@keyframes ob-card-float-a{0%,100%{translate:0 0}50%{translate:0 -13px}}
+@keyframes ob-card-float-b{0%,100%{translate:0 0}50%{translate:0 12px}}
+@keyframes ob-chip-float{0%,100%{translate:0 0;rotate:-2deg}50%{translate:0 -10px;rotate:2deg}}
+@keyframes ob-coin-a{0%,100%{translate:0 0;rotate:-8deg}50%{translate:12px -17px;rotate:9deg}}
+@keyframes ob-coin-b{0%,100%{translate:0 0;rotate:6deg}50%{translate:-10px 13px;rotate:-7deg}}
+@keyframes ob-sparkle{0%,100%{transform:scale(.7) rotate(0);opacity:.35}50%{transform:scale(1.2) rotate(20deg);opacity:1}}
+@keyframes ob-dots{from{background-position:0 0}to{background-position:100px 70px}}
+@keyframes ob-shimmer{from{background-position:180% 0}to{background-position:-40% 0}}
+@keyframes ob-orbit-drift{0%,100%{transform:translate(0,0)}50%{transform:translate(18px,-12px)}}
+@media(max-width:1150px){
+ #onboarding .ob-wallet-card{left:18px;top:9%;transform:scale(.78);transform-origin:top left;opacity:.94;}
+ #onboarding .ob-budget-card{right:2%;top:12%;transform:scale(.9);transform-origin:top right;}
+ #onboarding .ob-category-card{right:2%;bottom:8%;transform:scale(.88);transform-origin:bottom right;}
+ #onboarding .ob-money-chip-a{left:3%;bottom:12%;}
+ #onboarding .ob-money-chip-b{right:3%;bottom:29%;}
+ #onboarding .ob-coin-a{left:5%;top:45%;}
+ #onboarding .ob-coin-b{right:8%;top:44%;}
+}
+@media(max-width:700px){
+ #onboarding .ob-wallet-card{left:-78px;top:3%;transform:scale(.56);transform-origin:top left;opacity:.5;}
+ #onboarding .ob-budget-card{right:-25px;top:8%;transform:scale(.7);transform-origin:top right;opacity:.78;}
+ #onboarding .ob-category-card{right:-42px;bottom:3%;transform:scale(.68);transform-origin:bottom right;opacity:.7;}
+ #onboarding .ob-money-chip-a{left:-25px;bottom:7%;transform:scale(.78);transform-origin:left bottom;opacity:.8;}
+ #onboarding .ob-money-chip-b{right:-25px;bottom:23%;transform:scale(.75);transform-origin:right bottom;opacity:.8;}
+ #onboarding .ob-coin-a{left:2%;top:37%;width:35px;height:35px;font-size:17px;}
+ #onboarding .ob-coin-b{right:3%;top:34%;width:29px;height:29px;font-size:15px;}
+ #onboarding .ob-coin-c{left:5%;bottom:26%;width:26px;height:26px;font-size:14px;}
+ #onboarding .ob-spark-a{left:14%;top:24%;}#onboarding .ob-spark-b{right:12%;top:25%;}#onboarding .ob-spark-c{right:10%;bottom:35%;}
+ #onboarding .ob-orb-a{width:90vw;height:90vw;left:-42%;top:-15%;}
+ #onboarding .ob-orb-b{width:80vw;height:80vw;right:-42%;bottom:-14%;}
+}
+@media(prefers-reduced-motion:reduce){
+ #onboarding .onboarding-finance-scene *,#onboarding .onboarding-finance-scene::before{animation:none !important;}
+ #onboarding .ob-chart-line{stroke-dashoffset:0;}
+}
+
 </style>
 </head>
 <body>
 
 <!-- ============ ONBOARDING (first launch) ============ -->
 <div id="onboarding" class="overlay-screen hidden">
+  <div class="onboarding-finance-scene" aria-hidden="true">
+    <div class="ob-orb ob-orb-a"></div>
+    <div class="ob-orb ob-orb-b"></div>
+    <div class="ob-money-chip ob-money-chip-a"><span>₹</span><b>Save more</b></div>
+    <div class="ob-money-chip ob-money-chip-b"><span>↗</span><b>Track growth</b></div>
+    <div class="ob-wallet-card">
+      <div class="ob-wallet-top"><span>MONTHLY OVERVIEW</span><span class="ob-wallet-dot"></span></div>
+      <div class="ob-wallet-amount">₹ 24,850 <small>+12.8%</small></div>
+      <svg viewBox="0 0 250 78" role="presentation" focusable="false">
+        <defs><linearGradient id="obChartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".28"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>
+        <path class="ob-chart-grid" d="M0 18H250 M0 42H250 M0 66H250"></path>
+        <path class="ob-chart-area" d="M2 62 C25 58 28 42 51 48 S82 57 103 34 S136 44 155 27 S187 36 205 18 S231 19 248 6 L248 76 L2 76Z"></path>
+        <path class="ob-chart-line" d="M2 62 C25 58 28 42 51 48 S82 57 103 34 S136 44 155 27 S187 36 205 18 S231 19 248 6"></path>
+        <circle class="ob-chart-end" cx="248" cy="6" r="4"></circle>
+      </svg>
+      <div class="ob-chart-legend"><span><i></i> Income</span><span><i></i> Spending</span></div>
+    </div>
+    <div class="ob-budget-card"><div class="ob-budget-ring"><span>✓</span></div><div><b>Budget on track</b><small>You're doing great</small></div></div>
+    <div class="ob-category-card"><span class="ob-category-title">SPENDING CATEGORIES</span><div><i class="ob-cat-dot cat-food"></i><span>Food</span><b></b></div><div><i class="ob-cat-dot cat-home"></i><span>Home</span><b></b></div><div><i class="ob-cat-dot cat-travel"></i><span>Travel</span><b></b></div></div>
+    <div class="ob-floating-coin ob-coin-a">₹</div>
+    <div class="ob-floating-coin ob-coin-b">+</div>
+    <div class="ob-floating-coin ob-coin-c">↗</div>
+    <div class="ob-scene-spark ob-spark-a">✦</div><div class="ob-scene-spark ob-spark-b">✧</div><div class="ob-scene-spark ob-spark-c">✦</div>
+    <div class="ob-scene-dots"></div>
+  </div>
   <div class="overlay-card onboarding-card">
     <div class="login-eyebrow onboarding-eyebrow">A FRESH START FOR YOUR FINANCES</div>
     <div class="emoji-big">👋</div>
@@ -919,6 +1090,28 @@ option {
 <div id="lockScreen" class="overlay-screen lock-screen hidden">
   <div class="lock-glow lock-glow-one" aria-hidden="true"></div>
   <div class="lock-glow lock-glow-two" aria-hidden="true"></div>
+  <!-- Decorative finance animations: purely visual and never intercept input. -->
+  <div class="finance-motion-bg" aria-hidden="true">
+    <div class="finance-float finance-coin finance-coin-a">₹</div>
+    <div class="finance-float finance-coin finance-coin-b">↗</div>
+    <div class="finance-float finance-coin finance-coin-c">₹</div>
+    <div class="finance-float finance-mini-card finance-mini-card-a"><span>INCOME</span><b>＋</b><i></i></div>
+    <div class="finance-float finance-mini-card finance-mini-card-b"><span>EXPENSE</span><b>−</b><i></i></div>
+    <div class="finance-chart-card">
+      <span class="finance-chart-label">YOUR MONEY, IN MOTION</span>
+      <svg viewBox="0 0 220 82" role="presentation" focusable="false">
+        <path class="finance-chart-grid" d="M4 18H216 M4 41H216 M4 64H216"></path>
+        <path class="finance-chart-area" d="M5 65 L35 52 L63 57 L91 31 L121 42 L151 18 L180 27 L215 7 L215 76 L5 76 Z"></path>
+        <path class="finance-chart-line" d="M5 65 L35 52 L63 57 L91 31 L121 42 L151 18 L180 27 L215 7"></path>
+        <circle class="finance-chart-point" cx="215" cy="7" r="4"></circle>
+      </svg>
+    </div>
+    <div class="finance-budget-ring"><span>✓</span></div>
+    <div class="finance-spark finance-spark-a">✦</div>
+    <div class="finance-spark finance-spark-b">✧</div>
+    <div class="finance-spark finance-spark-c">·</div>
+    <div class="finance-bar-card"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
   <div class="overlay-card lock-card">
     <div class="login-brand">
       <div class="login-brand-mark">₹</div>
@@ -1243,7 +1436,7 @@ option {
             </div>
             <div class="card chart-card">
               <div class="chart-head">
-                <div><h3>Spending by day</h3><div class="chart-help">Each point shows how much you spent that day.</div></div>
+                <div><h3>Spending by day</h3><div class="chart-help">Daily total in your selected currency. The x-axis is the day of the month; days without spending show ₹0.</div></div>
               </div>
               <canvas class="chart" id="chartLine"></canvas>
               <div id="dailySpendSummary" class="chart-summary"></div>
@@ -2563,17 +2756,19 @@ function renderMonthlyReport(){
   for(var d=1; d<=dim; d++){
     var iso = y+'-'+pad2(m+1)+'-'+pad2(d);
     dayLabels.push(String(d));
-    dayVals.push(sumTx(list.filter(function(t){return t.date===iso;}),'expense')/100);
+    // Keep chart values in minor units, matching fmtMoney() and the rest of the app.
+    dayVals.push(sumTx(list.filter(function(t){return t.date===iso;}),'expense'));
   }
   drawLineChart($('#chartLine'), dayLabels, dayVals);
   var spendingDays = dayVals.filter(function(v){ return v>0; });
-  var avgSpendDay = spendingDays.length ? dayVals.reduce(function(a,b){return a+b;},0)/spendingDays.length : 0;
+  // Average only the days that actually have spending; all amounts remain in minor units.
+  var avgSpendDay = spendingDays.length ? spendingDays.reduce(function(a,b){return a+b;},0)/spendingDays.length : 0;
   var peakDayIndex = dayVals.length ? dayVals.indexOf(Math.max.apply(null, dayVals)) : -1;
   var peakDayValue = peakDayIndex>=0 ? dayVals[peakDayIndex] : 0;
   $('#dailySpendSummary').innerHTML =
     '<span>Days with spending: <strong>'+spendingDays.length+'</strong></span>' +
-    '<span>Average spending day: <strong class="num">'+fmtMoney(Math.round(avgSpendDay*100))+'</strong></span>' +
-    (peakDayValue>0 ? '<span>Highest day: <strong>Day '+dayLabels[peakDayIndex]+' · '+fmtMoney(Math.round(peakDayValue*100))+'</strong></span>' : '');
+    '<span>Average spending day: <strong class="num">'+fmtMoney(Math.round(avgSpendDay))+'</strong></span>' +
+    (peakDayValue>0 ? '<span>Highest day: <strong>Day '+dayLabels[peakDayIndex]+' · '+fmtMoney(Math.round(peakDayValue))+'</strong></span>' : '');
 
   var byPay = {};
   list.filter(function(t){return t.type==='expense';}).forEach(function(t){ var k=t.paymentMethod||'Unspecified'; byPay[k]=(byPay[k]||0)+t.amountMinor; });
