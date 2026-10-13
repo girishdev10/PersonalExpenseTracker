@@ -265,8 +265,20 @@ input.invalid, select.invalid{ border-color:var(--danger); }
 .legend span{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-soft); }
 .legend i{ width:11px;height:11px;border-radius:4px; display:inline-block; }
 
-/* Charts */
+/* Beginner-friendly spending charts */
 canvas.chart{ width:100%; height:220px; display:block; }
+.chart-help{font-size:12px;color:var(--ink-faint);margin-top:2px;line-height:1.4;}
+.category-distribution{display:flex;flex-direction:column;gap:12px;margin-top:8px;}
+.category-dist-row{min-width:0;}
+.category-dist-head{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:5px;}
+.category-dist-name{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.category-dist-value{font-size:12px;color:var(--ink-soft);white-space:nowrap;}
+.category-dist-track{height:9px;background:var(--surface-2);border-radius:99px;overflow:hidden;}
+.category-dist-fill{height:100%;border-radius:99px;background:var(--accent);transition:width .25s ease;}
+.category-dist-meta{display:flex;justify-content:space-between;gap:8px;margin-top:3px;font-size:11px;color:var(--ink-faint);}
+.category-dist-empty{padding:24px 8px;text-align:center;color:var(--ink-faint);}
+.chart-summary{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:9px;margin-top:2px;font-size:12px;color:var(--ink-soft);}
+.chart-summary strong{color:var(--ink);font-weight:650;}
 .chart-card .chart-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
 
 /* Users modal grid */
@@ -610,6 +622,13 @@ option {
 .currency-converter-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
 .currency-converter-actions .btn{flex:1;min-width:120px;}
 .currency-converter-note{margin-top:10px;font-size:11px;color:var(--ink-faint);}
+.custom-currency-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+.custom-currency-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-m);background:var(--surface-2);}
+.custom-currency-symbol{width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;flex:0 0 auto;}
+.custom-currency-meta{min-width:0;flex:1;}
+.custom-currency-code{font-weight:700;}
+.custom-currency-name{font-size:12px;color:var(--ink-soft);}
+.custom-currency-empty{padding:12px;border:1px dashed var(--line);border-radius:var(--radius-m);color:var(--ink-faint);font-size:12px;}
 @media(max-width:600px){.currency-converter-grid{grid-template-columns:1fr;}}
 </style>
 </head>
@@ -941,8 +960,19 @@ option {
             <div class="card"><div class="stat-label">Largest expense</div><div class="stat-value num" id="rm-largest" style="font-size:17px;">—</div></div>
           </div>
           <div class="grid grid-2" style="margin-bottom:var(--gap);">
-            <div class="card chart-card"><div class="chart-head"><h3>Category distribution</h3></div><canvas class="chart" id="chartDonut"></canvas></div>
-            <div class="card chart-card"><div class="chart-head"><h3>Daily spending</h3></div><canvas class="chart" id="chartLine"></canvas></div>
+            <div class="card chart-card spending-breakdown-card">
+              <div class="chart-head">
+                <div><h3>Where your money went</h3><div class="chart-help">See which categories used the most of your spending.</div></div>
+              </div>
+              <div id="categoryDistribution" class="category-distribution"></div>
+            </div>
+            <div class="card chart-card">
+              <div class="chart-head">
+                <div><h3>Spending by day</h3><div class="chart-help">Each point shows how much you spent that day.</div></div>
+              </div>
+              <canvas class="chart" id="chartLine"></canvas>
+              <div id="dailySpendSummary" class="chart-summary"></div>
+            </div>
           </div>
           <div class="card" style="margin-bottom:var(--gap);">
             <h3 style="margin-bottom:8px;">By payment method</h3>
@@ -1068,12 +1098,17 @@ option {
                 <option value="CAD">C$ CAD</option><option value="AED">د.إ AED</option><option value="AUD">A$ AUD</option>
               </select>
             </div>
-            <div class="field" style="display:flex;align-items:flex-end;">
+            <div class="field" style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;">
               <button class="btn" id="openCurrencyConverter">🔄 Currency converter</button>
+              <button class="btn" id="addCustomCurrencyBtn">＋ Add currency</button>
             </div>
             <div class="field"><label for="settingsFutureDates">Future-dated expenses</label>
               <select id="settingsFutureDates"><option value="1">Allow</option><option value="0">Disallow</option></select>
             </div>
+          </div>
+          <div style="margin-top:12px;">
+            <div class="section-label">Your custom currencies</div>
+            <div id="customCurrencyList" class="custom-currency-list"></div>
           </div>
         </div>
 
@@ -1158,6 +1193,17 @@ var LS_ACTIVE = 'ledger:activeUser';
 function dataKey(id){ return 'ledger:data:' + id; }
 
 var CURRENCY_SYMBOLS = { INR:'₹', USD:'$', EUR:'€', GBP:'£', JPY:'¥', CAD:'C$', AED:'د.إ', AUD:'A$' };
+var CURRENCY_NAMES = { INR:'Indian Rupee', USD:'US Dollar', EUR:'Euro', GBP:'British Pound', JPY:'Japanese Yen', CAD:'Canadian Dollar', AED:'UAE Dirham', AUD:'Australian Dollar' };
+function currencyMap(){
+  var out = {};
+  Object.keys(CURRENCY_SYMBOLS).forEach(function(c){ out[c] = { code:c, symbol:CURRENCY_SYMBOLS[c], name:CURRENCY_NAMES[c] || c, builtin:true }; });
+  var custom = DATA && DATA.settings && Array.isArray(DATA.settings.customCurrencies) ? DATA.settings.customCurrencies : [];
+  custom.forEach(function(c){ if(c && c.code) out[c.code] = { code:c.code, symbol:c.symbol || c.code, name:c.name || c.code, builtin:false }; });
+  return out;
+}
+function currencyEntries(){ return Object.keys(currencyMap()).map(function(c){ return currencyMap()[c]; }); }
+function currencySymbol(code){ var m=currencyMap(); return m[code] ? m[code].symbol : code; }
+function currencyName(code){ var m=currencyMap(); return m[code] ? m[code].name : code; }
 
 var DEFAULT_EXPENSE_CATEGORIES = [
   { name:'Food', icon:'🍔', subs:['Breakfast','Lunch','Dinner','Snacks','Restaurant','Delivery'] },
@@ -1256,7 +1302,7 @@ function toMinor(amountStr){
 function fromMinor(minor){ return minor/100; }
 function fmtMoney(minor, opts){
   opts = opts || {};
-  var sym = CURRENCY_SYMBOLS[(DATA && DATA.settings.currency) || 'INR'];
+  var sym = currencySymbol((DATA && DATA.settings.currency) || 'INR');
   var neg = minor < 0;
   var v = Math.abs(minor)/100;
   var str = v.toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 });
@@ -1370,6 +1416,7 @@ function defaultData(currency){
       theme: 'system',
       layout: 'comfortable',
       allowFutureDates: true,
+      customCurrencies: [],
       pinHash: null,
       lastBackupAt: null,
       hasSampleData: false
@@ -1396,6 +1443,8 @@ function loadDataForUser(id){
     if(!Array.isArray(DATA.paymentMethods) || !DATA.paymentMethods.length) DATA.paymentMethods = d.paymentMethods;
     if(!DATA.budgets || typeof DATA.budgets !== 'object') DATA.budgets = {};
     if(!Array.isArray(DATA.recurring)) DATA.recurring = [];
+    if(!Array.isArray(DATA.settings.customCurrencies)) DATA.settings.customCurrencies = [];
+    DATA.settings.customCurrencies = DATA.settings.customCurrencies.filter(function(c){ return c && /^[A-Z0-9]{2,6}$/.test(c.code||'') && !CURRENCY_SYMBOLS[c.code]; }).map(function(c){ return { code:String(c.code).toUpperCase(), name:String(c.name||c.code), symbol:String(c.symbol||c.code) }; });
   }catch(e){
     try{ localStorage.setItem(dataKey(id)+':corrupt-backup:'+Date.now(), raw); }catch(e2){}
     DATA = defaultData();
@@ -1707,7 +1756,7 @@ function renderDashboard(){
   }
 
   var chipRow = $('#quickAddChips');
-  chipRow.innerHTML = QUICK_AMOUNTS.map(function(a){ return '<button class="chip" data-qa="'+a+'">+ '+CURRENCY_SYMBOLS[DATA.settings.currency]+a+'</button>'; }).join('') +
+  chipRow.innerHTML = QUICK_AMOUNTS.map(function(a){ return '<button class="chip" data-qa="'+a+'">+ '+currencySymbol(DATA.settings.currency)+a+'</button>'; }).join('') +
     categoriesFor('expense').slice(0,5).map(function(c){ return '<button class="chip" data-qc="'+esc(c.name)+'">'+c.icon+' '+esc(c.name)+'</button>'; }).join('');
   $all('[data-qa]', chipRow).forEach(function(b){
     b.onclick = function(){ navigate('add'); $('#tx-amount').value = b.dataset.qa; };
@@ -1742,7 +1791,7 @@ function setTxType(type){
   $('#upiField').style.display = type==='expense' ? '' : 'none';
   populateCategorySelect();
   var qa = $('#txQuickAmounts');
-  qa.innerHTML = QUICK_AMOUNTS.map(function(a){ return '<button type="button" class="chip" data-qa="'+a+'">+ '+CURRENCY_SYMBOLS[DATA.settings.currency]+a+'</button>'; }).join('');
+  qa.innerHTML = QUICK_AMOUNTS.map(function(a){ return '<button type="button" class="chip" data-qa="'+a+'">+ '+currencySymbol(DATA.settings.currency)+a+'</button>'; }).join('');
   $all('[data-qa]', qa).forEach(function(b){ b.onclick = function(){ $('#tx-amount').value = b.dataset.qa; }; });
 }
 $all('#typeTabs .tab').forEach(function(b){ b.addEventListener('click', function(){ setTxType(b.dataset.type); }); });
@@ -2047,57 +2096,59 @@ function drawComboChart(canvas, labels, incomeVals, expenseVals){
 function drawLineChart(canvas, labels, values){
   if(!canvas) return;
   var p = prepCanvas(canvas), ctx=p.ctx, w=p.w, h=p.h;
-  var padL=44,padB=24,padT=10,padR=10;
+  var padL=48,padB=26,padT=14,padR=10;
   var max = Math.max.apply(null, values.concat([1]));
   var innerW=w-padL-padR, innerH=h-padT-padB;
-  ctx.strokeStyle=css('--line');
+  ctx.strokeStyle=css('--line'); ctx.lineWidth=1;
+  ctx.font='10px '+css('--font-sans'); ctx.fillStyle=css('--ink-faint'); ctx.textAlign='right';
   for(var g=0; g<=4; g++){
     var y=padT+innerH-(g/4)*innerH;
-    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(w-padR,y); ctx.globalAlpha=.5; ctx.stroke(); ctx.globalAlpha=1;
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(w-padR,y); ctx.globalAlpha=.55; ctx.stroke(); ctx.globalAlpha=1;
+    ctx.fillText(fmtMoney(Math.round((max*(g/4)*100)/100)).replace(/\.00$/,''), padL-7, y+3);
   }
   var stepX = values.length>1 ? innerW/(values.length-1) : innerW;
-  ctx.beginPath();
+  var points=[];
   values.forEach(function(v,i){
-    var x = padL + i*stepX, y = padT + innerH - (max>0?(v/max)*innerH:0);
-    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    var x=padL+i*stepX, y=padT+innerH-(max>0?(v/max)*innerH:0);
+    points.push({x:x,y:y,v:v});
   });
-  ctx.strokeStyle = css('--accent'); ctx.lineWidth=2; ctx.stroke();
-  ctx.fillStyle = css('--accent-soft');
-  ctx.lineTo(padL+(values.length-1)*stepX, padT+innerH); ctx.lineTo(padL, padT+innerH); ctx.closePath(); ctx.fill();
+  if(points.length){
+    ctx.beginPath();
+    points.forEach(function(pt,i){ if(i===0) ctx.moveTo(pt.x,pt.y); else ctx.lineTo(pt.x,pt.y); });
+    ctx.lineTo(points[points.length-1].x,padT+innerH);
+    ctx.lineTo(points[0].x,padT+innerH); ctx.closePath();
+    ctx.fillStyle=css('--accent-soft'); ctx.globalAlpha=.65; ctx.fill(); ctx.globalAlpha=1;
+    ctx.beginPath();
+    points.forEach(function(pt,i){ if(i===0) ctx.moveTo(pt.x,pt.y); else ctx.lineTo(pt.x,pt.y); });
+    ctx.strokeStyle=css('--accent'); ctx.lineWidth=2.5; ctx.stroke();
+    ctx.fillStyle=css('--accent');
+    points.forEach(function(pt){ if(pt.v>0){ ctx.beginPath(); ctx.arc(pt.x,pt.y,2.8,0,Math.PI*2); ctx.fill(); } });
+  }
   ctx.fillStyle=css('--ink-faint'); ctx.font='9.5px '+css('--font-sans'); ctx.textAlign='center';
-  labels.forEach(function(lab,i){ if(i%Math.ceil(labels.length/7||1)===0) ctx.fillText(lab, padL+i*stepX, h-6); });
+  var skip=Math.ceil(labels.length/7||1);
+  labels.forEach(function(lab,i){ if(i%skip===0 || i===labels.length-1) ctx.fillText(lab,padL+i*stepX,h-6); });
   ctx.textAlign='left';
 }
 var DONUT_COLORS = ['#2F6F5E','#B3821F','#B7473C','#4A6FA5','#7A5FA5','#5B8C3A','#A5573F','#3F8FA5','#8C6B4A'];
 function drawDonutChart(canvas, segments){
-  if(!canvas) return;
-  var p = prepCanvas(canvas), ctx=p.ctx, w=p.w, h=p.h;
-  var cx=w*0.32, cy=h/2, r=Math.min(cx,cy)-10, r0=r*0.58;
-  var total = segments.reduce(function(s,seg){return s+seg.value;},0);
-  var start = -Math.PI/2;
-  if(total<=0){
-    ctx.strokeStyle=css('--line'); ctx.lineWidth=r-r0; ctx.beginPath(); ctx.arc(cx,cy,(r+r0)/2,0,Math.PI*2); ctx.stroke();
-  } else {
-    segments.forEach(function(seg,i){
-      var ang = (seg.value/total)*Math.PI*2;
-      ctx.beginPath();
-      ctx.arc(cx,cy,(r+r0)/2, start, start+ang);
-      ctx.lineWidth = r-r0; ctx.strokeStyle = DONUT_COLORS[i%DONUT_COLORS.length]; ctx.stroke();
-      start += ang;
-    });
+  var box = $('#categoryDistribution');
+  if(!box) return;
+  if(!segments || !segments.length){
+    box.innerHTML = '<div class="category-dist-empty">No expenses recorded for this period.</div>';
+    return;
   }
-  ctx.fillStyle=css('--ink'); ctx.textAlign='center'; ctx.font='700 13px '+css('--font-serif');
-  ctx.fillText(fmtMoney(total), cx, cy+5);
-  var lx = w*0.62, ly = 14;
-  ctx.textAlign='left'; ctx.font='11px '+css('--font-sans');
-  segments.slice(0,7).forEach(function(seg,i){
-    ctx.fillStyle = DONUT_COLORS[i%DONUT_COLORS.length];
-    ctx.fillRect(lx, ly-9, 9,9);
-    ctx.fillStyle = css('--ink-soft');
-    var pct = total>0 ? Math.round((seg.value/total)*100) : 0;
-    ctx.fillText(seg.label+' '+pct+'%', lx+14, ly);
-    ly += 18;
-  });
+  var total = segments.reduce(function(sum, seg){ return sum + (seg.value||0); }, 0);
+  var max = segments[0].value || 1;
+  box.innerHTML = segments.map(function(seg, i){
+    var pct = total>0 ? (seg.value/total)*100 : 0;
+    var shownPct = pct >= 1 ? Math.round(pct) : pct.toFixed(1);
+    var width = Math.max(3, (seg.value/max)*100);
+    return '<div class="category-dist-row">' +
+      '<div class="category-dist-head"><span class="category-dist-name">'+esc(seg.label)+'</span><span class="category-dist-value num">'+fmtMoney(seg.value)+'</span></div>' +
+      '<div class="category-dist-track"><div class="category-dist-fill" style="width:'+width+'%;"></div></div>' +
+      '<div class="category-dist-meta"><span>'+shownPct+'% of total spending</span><span>#'+(i+1)+'</span></div>' +
+      '</div>';
+  }).join('');
 }
 
 /* ============================================================
@@ -2148,6 +2199,14 @@ function renderMonthlyReport(){
     dayVals.push(sumTx(list.filter(function(t){return t.date===iso;}),'expense')/100);
   }
   drawLineChart($('#chartLine'), dayLabels, dayVals);
+  var spendingDays = dayVals.filter(function(v){ return v>0; });
+  var avgSpendDay = spendingDays.length ? dayVals.reduce(function(a,b){return a+b;},0)/spendingDays.length : 0;
+  var peakDayIndex = dayVals.length ? dayVals.indexOf(Math.max.apply(null, dayVals)) : -1;
+  var peakDayValue = peakDayIndex>=0 ? dayVals[peakDayIndex] : 0;
+  $('#dailySpendSummary').innerHTML =
+    '<span>Days with spending: <strong>'+spendingDays.length+'</strong></span>' +
+    '<span>Average spending day: <strong class="num">'+fmtMoney(Math.round(avgSpendDay*100))+'</strong></span>' +
+    (peakDayValue>0 ? '<span>Highest day: <strong>Day '+dayLabels[peakDayIndex]+' · '+fmtMoney(Math.round(peakDayValue*100))+'</strong></span>' : '');
 
   var byPay = {};
   list.filter(function(t){return t.type==='expense';}).forEach(function(t){ var k=t.paymentMethod||'Unspecified'; byPay[k]=(byPay[k]||0)+t.amountMinor; });
@@ -2389,13 +2448,13 @@ $('#restoreInput').addEventListener('change', function(e){
    ============================================================ */
 var CC_CACHE_KEY = 'ledger:currencyRates';
 function currencyOptions(selected){
-  return Object.keys(CURRENCY_SYMBOLS).map(function(c){
-    return '<option value="'+c+'"'+(c===selected?' selected':'')+'>'+esc(CURRENCY_SYMBOLS[c]+' '+c)+'</option>';
+  return currencyEntries().map(function(c){
+    return '<option value="'+esc(c.code)+'"'+(c.code===selected?' selected':'')+'>'+esc(c.symbol+' '+c.code+(c.name && c.name!==c.code?' — '+c.name:''))+'</option>';
   }).join('');
 }
 function openCurrencyConverter(){
   var from = (DATA && DATA.settings.currency) || 'INR';
-  var keys = Object.keys(CURRENCY_SYMBOLS);
+  var keys = currencyEntries().map(function(c){return c.code;});
   var to = keys.find(function(c){ return c!==from; }) || from;
   openModal(
     '<div class="modal-head"><h2>Currency converter</h2><button class="icon-btn" id="ccClose" type="button" aria-label="Close currency converter" title="Close">✕</button></div>' +
@@ -2429,7 +2488,7 @@ function openCurrencyConverter(){
     var result=amount*rate;
     var formatted=new Intl.NumberFormat(undefined,{minimumFractionDigits:2,maximumFractionDigits:6}).format(result);
     var inputFormatted=new Intl.NumberFormat(undefined,{minimumFractionDigits:2,maximumFractionDigits:6}).format(amount);
-    $('#ccResult').innerHTML='<div class="cc-amount">'+esc(CURRENCY_SYMBOLS[t]+' '+formatted)+'</div><div class="cc-rate">'+esc(inputFormatted+' '+f+' = '+CURRENCY_SYMBOLS[t]+' '+formatted+' '+t)+'<br>1 '+esc(f)+' = '+esc(String(rate))+' '+esc(t)+'</div>';
+    $('#ccResult').innerHTML='<div class="cc-amount">'+esc(currencySymbol(t)+' '+formatted)+'</div><div class="cc-rate">'+esc(inputFormatted+' '+f+' = '+currencySymbol(t)+' '+formatted+' '+t)+'<br>1 '+esc(f)+' = '+esc(String(rate))+' '+esc(t)+'</div>';
   }
   function setRate(rate, source){
     if(!isFinite(rate) || rate<=0){ showToast('Could not get a valid exchange rate.'); return; }
@@ -2493,8 +2552,10 @@ function openCurrencyConverter(){
 function renderSettingsPage(){
   $all('#settingsThemeChips .chip').forEach(function(b){ b.classList.toggle('active', b.dataset.v===DATA.settings.theme); });
   $all('#settingsLayoutChips .chip').forEach(function(b){ b.classList.toggle('active', b.dataset.v===DATA.settings.layout); });
+  $('#settingsCurrency').innerHTML = currencyOptions(DATA.settings.currency);
   $('#settingsCurrency').value = DATA.settings.currency;
   $('#settingsFutureDates').value = DATA.settings.allowFutureDates ? '1':'0';
+  renderCustomCurrencyList();
   renderCategoryManager();
   renderPaymentManager();
 }
@@ -2503,7 +2564,40 @@ $all('#settingsLayoutChips .chip').forEach(function(b){ b.addEventListener('clic
 $all('.theme-btn').forEach(function(b){ b.addEventListener('click', function(){ DATA.settings.theme=b.dataset.themeChoice; saveData(); applyTheme(); if(CURRENT_ROUTE==='settings') renderSettingsPage(); }); });
 $('#settingsCurrency').addEventListener('change', function(){ DATA.settings.currency=this.value; saveData(); refreshCurrentPage(); });
 $('#openCurrencyConverter').addEventListener('click', openCurrencyConverter);
+$('#addCustomCurrencyBtn').addEventListener('click', openAddCustomCurrencyModal);
 $('#settingsFutureDates').addEventListener('change', function(){ DATA.settings.allowFutureDates = this.value==='1'; saveData(); });
+
+function renderCustomCurrencyList(){
+  var el=$('#customCurrencyList'); if(!el) return;
+  var list=Array.isArray(DATA.settings.customCurrencies)?DATA.settings.customCurrencies:[];
+  if(!list.length){ el.innerHTML='<div class="custom-currency-empty">No custom currencies yet. Add one when you need a currency that is not in the built-in list.</div>'; return; }
+  el.innerHTML=list.map(function(c){
+    return '<div class="custom-currency-item"><span class="custom-currency-symbol">'+esc(c.symbol)+'</span><div class="custom-currency-meta"><div class="custom-currency-code">'+esc(c.code)+'</div><div class="custom-currency-name">'+esc(c.name)+'</div></div></div>';
+  }).join('');
+}
+function openAddCustomCurrencyModal(){
+  openModal(
+    '<div class="modal-head"><h2>Add a currency</h2><button class="icon-btn" id="ccuClose" type="button" aria-label="Close" title="Close">✕</button></div>' +
+    '<p class="muted">Create a currency just for this profile. It will be available throughout Ledger, including expenses, income, quick amounts, settings and the converter.</p>' +
+    '<div class="field"><label for="ccuCode">Currency code</label><input id="ccuCode" maxlength="6" placeholder="e.g. KES" autocapitalize="characters" spellcheck="false"><div class="faint">2–6 letters or numbers, for example KES or BTC.</div></div>' +
+    '<div class="field"><label for="ccuName">Currency name</label><input id="ccuName" maxlength="40" placeholder="e.g. Kenyan Shilling"></div>' +
+    '<div class="field"><label for="ccuSymbol">Symbol</label><input id="ccuSymbol" maxlength="8" placeholder="e.g. KSh"></div>' +
+    '<div class="modal-actions"><button class="btn btn-ghost" id="ccuCancel">Cancel</button><button class="btn btn-primary" id="ccuSave">Add currency</button></div>'
+  );
+  $('#ccuClose').onclick=closeModal; $('#ccuCancel').onclick=closeModal;
+  $('#ccuCode').addEventListener('input',function(){ this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); });
+  $('#ccuSave').onclick=function(){
+    var code=$('#ccuCode').value.trim().toUpperCase(), name=$('#ccuName').value.trim(), symbol=$('#ccuSymbol').value.trim();
+    if(!/^[A-Z0-9]{2,6}$/.test(code)){ showToast('Use a 2–6 character currency code.'); return; }
+    if(CURRENCY_SYMBOLS[code]){ showToast('That currency code is already built in.'); return; }
+    if(!name){ showToast('Please enter the currency name.'); return; }
+    if(!symbol){ showToast('Please enter the currency symbol.'); return; }
+    if(!Array.isArray(DATA.settings.customCurrencies)) DATA.settings.customCurrencies=[];
+    if(DATA.settings.customCurrencies.some(function(c){return c.code===code;})){ showToast('That custom currency already exists.'); return; }
+    DATA.settings.customCurrencies.push({code:code,name:name,symbol:symbol});
+    saveData(); closeModal(); renderSettingsPage(); showToast(code+' added to your currencies.');
+  };
+}
 
 function renderCategoryManager(){
   var el = $('#categoryManager');
@@ -2667,7 +2761,7 @@ function openEditProfileModal(userId){
     '</div>' +
     '<div class="field"><label>Name</label><input id="epName" maxlength="40" value="'+esc(name)+'" placeholder="e.g. Asha"></div>' +
     (!editing ? '<div class="field"><label>Currency</label><select id="epCurrency">' +
-      Object.keys(CURRENCY_SYMBOLS).map(function(c){return '<option value="'+c+'">'+CURRENCY_SYMBOLS[c]+' '+c+'</option>';}).join('') + '</select></div>' : '') +
+      currencyEntries().filter(function(c){return c.builtin;}).map(function(c){return '<option value="'+c.code+'">'+esc(c.symbol+' '+c.code+(c.name?' — '+c.name:''))+'</option>';}).join('') + '</select></div>' : '') +
     '<div class="modal-actions"><button class="btn btn-ghost" id="epCancel">Cancel</button><button class="btn btn-primary" id="epSave">'+(editing?'Save':'Create profile')+'</button></div>'
   );
   var pendingAvatar = avatarDataUrl;
