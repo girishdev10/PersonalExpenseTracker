@@ -2380,9 +2380,15 @@ function categoryIcon(type, name){
 // Prefer the saved category icon, but correct obvious vehicle/fuel descriptions
 // when an older or incorrectly categorized record was saved under Food.
 function recordCategoryIcon(type, category, description, subcategory){
+  // The saved category is authoritative. This ensures that changing a recurring
+  // rule's category also changes the icon shown for its linked transactions.
+  var savedIcon = categoryIcon(type, category);
+  var categoryExists = !!findCategory(type, category);
+  if(categoryExists) return savedIcon;
+  // Legacy fallback only for records with a missing/unknown category.
   var text = String((description || '') + ' ' + (subcategory || '')).toLowerCase();
   if(type !== 'income' && /\b(petrol|gasoline|diesel|fuel|refuelling|refueling|vehicle|car expense|bike expense|motorbike|scooter|taxi fare|auto fare|bus fare|train fare|parking fee)\b/.test(text)) return '🚗';
-  return categoryIcon(type, category);
+  return savedIcon;
 }
 function genTxId(type, dateISO){
   var prefix = type==='income' ? 'INC' : 'EXP';
@@ -3392,11 +3398,28 @@ function recurringFormModal(existing){
     }
     if(endDate && (!isValidISODate(endDate) || endDate<startDate)){ showToast('End date must be valid and not before the start date.'); return; }
     if(isEdit){
+      var previousType = existing.type;
+      var previousCategory = existing.category;
+      var previousName = existing.name;
+      var previousPayment = existing.paymentMethod;
       existing.name=name; existing.type=rType; existing.amountMinor=amt; existing.category=$('#r-category').value;
       existing.paymentMethod=$('#r-payment').value; existing.frequency=$('#r-freq').value; existing.startDate=startDate;
       existing.endDate=endDate; existing.lastDayMode=$('#r-lastday').checked; existing.description=name;
+      // Propagate editable descriptive fields to transactions owned by this rule.
+      // Historical amounts and dates remain untouched.
+      DATA.transactions.forEach(function(t){
+        if(t.recurringId !== existing.id) return;
+        if(previousType !== rType) t.type = rType;
+        if(previousCategory !== existing.category || previousType !== rType) t.category = existing.category;
+        if(previousName !== name || !t.description || t.description === previousName) t.description = name;
+        if(previousPayment !== existing.paymentMethod) t.paymentMethod = existing.paymentMethod;
+        t.subcategory = existing.subcategory || t.subcategory;
+      });
       // Keep lastGenerated so editing a rule does not recreate already-generated transactions.
-      saveData(); closeModal(); runRecurringEngine(); renderRecurringPage(); showToast('Recurring transaction updated');
+      saveData(); closeModal(); runRecurringEngine(); renderRecurringPage();
+      if(route==='transactions') renderTransactionsPage();
+      if(route==='dashboard') renderDashboard();
+      showToast('Recurring transaction updated');
     } else {
       DATA.recurring.push({
         id:uid('rec'), name:name, type:rType, amountMinor:amt, category:$('#r-category').value,
