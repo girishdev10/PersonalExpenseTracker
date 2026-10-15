@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<title>Ledger — Personal Expense Tracker</title>
+<title>Personal Expense Tracker</title>
 <meta name="description" content="A private, offline personal expense and income tracker. All data stays on this device.">
 <style>
 /* ============================================================
@@ -1116,7 +1116,7 @@ option {
     <div class="login-brand">
       <div class="login-brand-mark">₹</div>
       <div class="login-brand-copy">
-        <div class="login-brand-name">Ledger</div>
+        <div class="login-brand-name">Personal Expense Tracker</div>
         <div class="login-brand-sub">PERSONAL FINANCE, MADE CLEAR</div>
       </div>
       <span class="privacy-pill"><span class="privacy-dot"></span> On this device</span>
@@ -1139,10 +1139,10 @@ option {
         <input id="lock-pin" type="password" inputmode="numeric" maxlength="8" placeholder="Enter your 4–8 digit PIN" autocomplete="current-password" aria-describedby="lock-error">
         <div class="error hidden" id="lock-error" role="alert">That PIN doesn’t match. Please try again.</div>
       </div>
-      <button class="btn btn-primary btn-block login-unlock-btn" id="lock-submit" type="submit"><span>Unlock Ledger</span><span class="unlock-arrow" aria-hidden="true">→</span></button>
+      <button class="btn btn-primary btn-block login-unlock-btn" id="lock-submit" type="submit"><span>Unlock Personal Expense Tracker</span><span class="unlock-arrow" aria-hidden="true">→</span></button>
     </form>
     <div class="login-security-note"><span aria-hidden="true">🛡️</span><span>Your records stay in this browser on this device.</span></div>
-    <div class="login-footer"><span>LEDGER</span><span class="footer-separator">•</span><span>PRIVATE BY DESIGN</span></div>
+    <div class="login-footer"><span>PERSONAL EXPENSE TRACKER</span><span class="footer-separator">•</span><span>PRIVATE BY DESIGN</span></div>
   </div>
 </div>
 
@@ -1152,7 +1152,7 @@ option {
     <div class="brand">
       <div class="brand-mark">₹</div>
       <div>
-        <div class="brand-name">Ledger</div>
+        <div class="brand-name">Personal Expense Tracker</div>
         <div class="brand-sub">private &amp; offline</div>
       </div>
     </div>
@@ -1184,7 +1184,7 @@ option {
         <button class="theme-btn" data-theme-choice="dark">🌙</button>
         <button class="theme-btn" data-theme-choice="system">💻</button>
       </div>
-      <div class="version-hint">Ledger v1.0 · runs 100% offline</div>
+      <div class="version-hint">Personal Expense Tracker v1.0 · runs 100% offline</div>
     </div>
   </aside>
 
@@ -1513,8 +1513,9 @@ option {
           </div>
           <div class="card">
             <h3>Restore</h3>
-            <p class="muted">Import a Ledger backup file. A safety backup of your current data is made automatically before anything changes.</p>
+            <p class="muted">Choose any .json file from your computer. Personal Expense Tracker can import supported backup, profile, or raw data JSON files. A safety backup is made before changes.</p>
             <input type="file" id="restoreInput" accept="application/json" class="hidden">
+            <input type="file" id="folderJsonPicker" accept=".json,application/json" class="hidden">
             <button class="btn" id="restoreBtn">⬆ Import backup</button>
           </div>
           <div class="card">
@@ -1535,8 +1536,21 @@ option {
 
         <div class="card" style="margin-bottom:var(--gap);">
           <h3>Profile</h3>
-          <p class="muted">Ledger supports multiple local profiles. Each profile keeps its own private data on this device.</p>
+          <p class="muted">Personal Expense Tracker supports multiple local profiles. Each profile keeps its own private data on this device.</p>
           <button class="btn" id="settingsManageProfiles">👤 Manage profiles</button>
+        </div>
+
+        <div class="card" style="margin-bottom:var(--gap);">
+          <h3>📁 Local folder storage</h3>
+          <p class="muted">Keep an automatic JSON copy of this profile in a folder you choose. Personal Expense Tracker will continue saving in browser storage too, so this is an additional local copy—not cloud storage.</p>
+          <div id="folderStorageStatus" class="faint" style="margin:10px 0 12px;">No folder connected. Choose a folder to enable automatic file saving.</div>
+          <div class="row" style="gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary" id="connectStorageFolderBtn">📂 Choose storage folder</button>
+            <button class="btn" id="saveStorageFileBtn">💾 Save now</button>
+            <button class="btn" id="loadStorageFileBtn">📄 Choose JSON file to load</button>
+            <button class="btn" id="disconnectStorageFolderBtn">Disconnect</button>
+          </div>
+          <p class="faint" style="margin-top:10px;">A file named <code>personal-expense-tracker-data.json</code> is created inside the selected folder. Folder access requires a compatible browser (such as desktop Chrome or Edge) and your permission.</p>
         </div>
 
         <div class="card" style="margin-bottom:var(--gap);">
@@ -1640,7 +1654,7 @@ option {
 
         <div class="card" style="margin-top:var(--gap);">
           <h3>Privacy</h3>
-          <p class="muted">Your financial data is stored locally on this device, inside your browser. No account or internet connection is required, and Ledger never sends anything anywhere.</p>
+          <p class="muted">Your financial data is stored locally on this device, inside your browser. No account or internet connection is required, and Personal Expense Tracker never sends anything anywhere.</p>
         </div>
       </section>
 
@@ -1775,8 +1789,13 @@ function addMonthsISO(iso, n, lastDayMode){
 
 /* Money: integers stored in minor units (paise/cents) to avoid float errors */
 function toMinor(amountStr){
-  var n = parseFloat(String(amountStr).replace(/,/g,''));
-  if(isNaN(n)) return NaN;
+  var raw = String(amountStr == null ? '' : amountStr).trim();
+  if(!raw) return NaN;
+  var normalized = raw.replace(/,/g,'');
+  // Reject partial numbers such as '12abc' instead of silently accepting 12.
+  if(!/^(?:\d+(?:\.\d{0,2})?|\.\d{1,2})$/.test(normalized)) return NaN;
+  var n = Number(normalized);
+  if(!Number.isFinite(n)) return NaN;
   return Math.round(n * 100);
 }
 function fromMinor(minor){ return minor/100; }
@@ -1957,10 +1976,339 @@ function saveData(){
   if(!ACTIVE_USER_ID) return;
   try{
     localStorage.setItem(dataKey(ACTIVE_USER_ID), JSON.stringify(DATA));
+    // If the user has connected a folder before, quietly queue an additional file save.
+    queueFolderStorageSave();
   }catch(e){
     showToast('Could not save — your browser storage may be full.');
   }
 }
+
+/* ============================================================
+   OPTIONAL FILE SYSTEM ACCESS API STORAGE
+   ============================================================ */
+var STORAGE_FOLDER_HANDLE = null;
+var STORAGE_FOLDER_DB = 'ledger-folder-storage';
+var STORAGE_FOLDER_STORE = 'handles';
+var STORAGE_FOLDER_KEY = 'chosen-folder';
+var STORAGE_WRITE_TIMER = null;
+var STORAGE_WRITE_BUSY = false;
+var STORAGE_WRITE_PENDING = false;
+var STORAGE_LAST_WRITE = 0;
+var FOLDER_PROMPT_SHOWN_THIS_LOAD = {};
+
+function folderStorageSupported(){
+  return typeof window.showDirectoryPicker === 'function';
+}
+function storageProfileFolderNameFor(profileId, profile){
+  var user = profile || (USERS || []).find(function(u){ return u && u.id === profileId; }) || {};
+  var name = String(user.name || 'profile').trim()
+    .replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').slice(0,48) || 'profile';
+  var id = String(profileId || 'local').replace(/[^a-zA-Z0-9_-]/g, '').slice(-10) || 'local';
+  return name + ' (' + id + ')';
+}
+function currentStorageProfileFolderName(){ return storageProfileFolderNameFor(ACTIVE_USER_ID); }
+async function deleteProfileStorageFolder(profileId, profile){
+  var handle = STORAGE_FOLDER_HANDLE;
+  if(!handle){ try{ handle = await retrieveFolderHandle(); }catch(e){} }
+  if(!handle) return { deleted:false, reason:'no-folder' };
+  if(!await ensureFolderPermission(handle, true)) return { deleted:false, reason:'permission' };
+  try{
+    var wanted = storageProfileFolderNameFor(profileId, profile);
+    var safeId = String(profileId || 'local').replace(/[^a-zA-Z0-9_-]/g, '').slice(-10) || 'local';
+    var matchedName = null;
+    // Match by stable profile ID suffix as well as the current display name, so renaming a profile does not orphan its old folder.
+    for await (var entry of handle.values()){
+      if(entry && entry.kind === 'directory'){
+        var entryName = entry.name;
+        if(entryName === wanted || entryName.endsWith(' (' + safeId + ')')){ matchedName = entryName; break; }
+      }
+    }
+    if(!matchedName) return { deleted:true, missing:true };
+    await handle.removeEntry(matchedName, { recursive:true });
+    return { deleted:true };
+  }catch(e){
+    if(e && e.name === 'NotFoundError') return { deleted:true, missing:true };
+    return { deleted:false, reason:'error' };
+  }
+}
+function storageFolderFileName(){ return 'personal-expense-tracker-data.json'; }
+async function getCurrentProfileDirectory(createIfMissing){
+  if(!STORAGE_FOLDER_HANDLE) throw new Error('Choose a storage folder first');
+  return await STORAGE_FOLDER_HANDLE.getDirectoryHandle(currentStorageProfileFolderName(), {create: !!createIfMissing});
+}
+function openFolderStorageDB(){
+  return new Promise(function(resolve, reject){
+    if(!window.indexedDB){ reject(new Error('IndexedDB is unavailable')); return; }
+    var req = indexedDB.open(STORAGE_FOLDER_DB, 1);
+    req.onupgradeneeded = function(){ var db = req.result; if(!db.objectStoreNames.contains(STORAGE_FOLDER_STORE)) db.createObjectStore(STORAGE_FOLDER_STORE); };
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error || new Error('Could not open folder settings')); };
+  });
+}
+async function persistFolderHandle(handle){
+  var db = await openFolderStorageDB();
+  try{
+    await new Promise(function(resolve, reject){
+      var tx = db.transaction(STORAGE_FOLDER_STORE, 'readwrite');
+      tx.objectStore(STORAGE_FOLDER_STORE).put(handle, STORAGE_FOLDER_KEY);
+      tx.oncomplete = resolve; tx.onerror = function(){ reject(tx.error || new Error('Could not remember folder')); };
+    });
+  }finally{ db.close(); }
+}
+async function retrieveFolderHandle(){
+  var db = await openFolderStorageDB();
+  try{
+    return await new Promise(function(resolve, reject){
+      var tx = db.transaction(STORAGE_FOLDER_STORE, 'readonly');
+      var req = tx.objectStore(STORAGE_FOLDER_STORE).get(STORAGE_FOLDER_KEY);
+      req.onsuccess = function(){ resolve(req.result || null); };
+      req.onerror = function(){ reject(req.error || new Error('Could not read saved folder')); };
+    });
+  }finally{ db.close(); }
+}
+async function clearFolderHandle(){
+  try{
+    var db = await openFolderStorageDB();
+    try{
+      await new Promise(function(resolve, reject){
+        var tx = db.transaction(STORAGE_FOLDER_STORE, 'readwrite');
+        tx.objectStore(STORAGE_FOLDER_STORE).delete(STORAGE_FOLDER_KEY);
+        tx.oncomplete = resolve; tx.onerror = function(){ reject(tx.error || new Error('Could not forget folder')); };
+      });
+    }finally{ db.close(); }
+  }catch(e){}
+}
+async function ensureFolderPermission(handle, requestIfNeeded){
+  if(!handle) return false;
+  try{
+    var opts = { mode: 'readwrite' };
+    var permission = await handle.queryPermission(opts);
+    if(permission === 'granted') return true;
+    if(requestIfNeeded && typeof handle.requestPermission === 'function'){
+      permission = await handle.requestPermission(opts);
+      return permission === 'granted';
+    }
+  }catch(e){}
+  return false;
+}
+function folderStorageStatus(message){
+  var el = document.getElementById('folderStorageStatus');
+  if(el && message) el.textContent = message;
+}
+function folderStoragePayload(){
+  return {
+    app: 'ledger',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    profileId: ACTIVE_USER_ID,
+    profileName: ((USERS || []).find(function(u){ return u && u.id === ACTIVE_USER_ID; }) || {}).name || 'Profile',
+    data: DATA
+  };
+}
+async function writeFolderStorageFile(showMessage){
+  if(!STORAGE_FOLDER_HANDLE || !ACTIVE_USER_ID) {
+    if(showMessage) showToast('Choose a storage folder first.');
+    return false;
+  }
+  var allowed = await ensureFolderPermission(STORAGE_FOLDER_HANDLE, !!showMessage);
+  if(!allowed){
+    folderStorageStatus('Folder selected, but permission needs to be granted again. Tap “Choose storage folder” to reconnect.');
+    if(showMessage) showToast('Folder permission is not available. Reconnect the folder and allow access.');
+    return false;
+  }
+  if(STORAGE_WRITE_BUSY){ STORAGE_WRITE_PENDING = true; return false; }
+  STORAGE_WRITE_BUSY = true;
+  try{
+    var profileDir = await getCurrentProfileDirectory(true);
+    var fileHandle = await profileDir.getFileHandle(storageFolderFileName(), { create: true });
+    var writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(folderStoragePayload(), null, 2));
+    await writable.close();
+    STORAGE_LAST_WRITE = Date.now();
+    folderStorageStatus('Saved to ' + currentStorageProfileFolderName() + '/' + storageFolderFileName() + ' · ' + new Date(STORAGE_LAST_WRITE).toLocaleTimeString());
+    if(showMessage) showToast('Saved a JSON copy to your chosen folder.');
+    return true;
+  }catch(e){
+    folderStorageStatus('Could not write to the selected folder. Check the folder permission and available disk space.');
+    if(showMessage) showToast('Could not write the file: ' + (e && e.message ? e.message : 'unknown error'));
+    return false;
+  }finally{
+    STORAGE_WRITE_BUSY = false;
+    if(STORAGE_WRITE_PENDING){ STORAGE_WRITE_PENDING = false; queueFolderStorageSave(); }
+  }
+}
+function queueFolderStorageSave(){
+  if(!STORAGE_FOLDER_HANDLE || !ACTIVE_USER_ID) return;
+  if(STORAGE_WRITE_TIMER) clearTimeout(STORAGE_WRITE_TIMER);
+  STORAGE_WRITE_TIMER = setTimeout(function(){ writeFolderStorageFile(false); }, 700);
+}
+async function connectStorageFolder(){
+  if(!folderStorageSupported()){
+    showToast('Folder access is not supported in this browser. Try desktop Chrome or Edge, or use Download backup.');
+    return;
+  }
+  try{
+    var handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    var allowed = await ensureFolderPermission(handle, true);
+    if(!allowed){ showToast('Folder permission was not granted.'); return; }
+    STORAGE_FOLDER_HANDLE = handle;
+    try{ await persistFolderHandle(handle); }catch(e){}
+    folderStorageStatus('Folder connected. Saving a copy of this profile…');
+    await writeFolderStorageFile(false);
+    renderFolderStorageControls();
+    showToast('Storage folder connected. Changes will be saved automatically.');
+  }catch(e){
+    if(e && e.name === 'AbortError') return;
+    showToast('Could not connect the folder: ' + (e && e.message ? e.message : 'unknown error'));
+  }
+}
+async function loadFolderStorageFile(){
+  // Prefer the browser's native file picker so the user can navigate to any folder.
+  // Safari and some browsers do not support showOpenFilePicker, so use a normal file input there.
+  if(typeof window.showOpenFilePicker === 'function'){
+    try{
+      var handles = await window.showOpenFilePicker({
+        multiple: false,
+        types: [{
+          description: 'Personal Expense Tracker / JSON data files',
+          accept: { 'application/json': ['.json'] }
+        }]
+      });
+      if(!handles || !handles.length) return;
+      await readAndRestoreFolderJson(handles[0], handles[0].name || 'selected.json');
+      return;
+    }catch(e){
+      if(e && e.name === 'AbortError') return;
+      showToast('Could not open the file picker: ' + (e && e.message ? e.message : 'unknown error'));
+      return;
+    }
+  }
+  var input = document.getElementById('folderJsonPicker');
+  if(input){
+    input.value = '';
+    input.click();
+  }else{
+    showToast('This browser cannot open a JSON file picker here. Use Backup & Restore → Import backup.');
+  }
+}
+async function importSelectedJsonFile(file){
+  if(!file) return;
+  try{
+    var parsed = JSON.parse(await file.text());
+    await restoreParsedLedgerJson(parsed, file.name || 'selected.json');
+  }catch(e){
+    showToast('Could not load "' + (file.name || 'JSON file') + '": ' + (e && e.message ? e.message : 'invalid JSON'));
+  }
+}
+
+async function readAndRestoreFolderJson(fileHandle, fileName){
+  try{
+    var file = await fileHandle.getFile();
+    var parsed = JSON.parse(await file.text());
+    await restoreParsedLedgerJson(parsed, fileName || file.name || 'selected.json');
+  }catch(e){
+    showToast('Could not load "' + (fileName || 'JSON file') + '": ' + (e && e.message ? e.message : 'invalid JSON'));
+  }
+}
+async function restoreParsedLedgerJson(parsed, fileName){
+  var incoming = parsed && parsed.data ? parsed.data : parsed;
+  // Also accept the common backup wrapper shape {data:{transactions:[...]}}.
+  if(!incoming || !Array.isArray(incoming.transactions)){
+    showToast('This JSON file is not a supported Personal Expense Tracker profile or backup file. Nothing was changed.');
+    return;
+  }
+  confirmDialog({
+    title: 'Load this JSON file?',
+    body: 'This will replace the current profile with data from "' + String(fileName || 'selected.json').replace(/[<>]/g, '') + '". A safety copy of your current data will be made first.',
+    okLabel: 'Backup & Load'
+  }, function(){
+    try{
+      localStorage.setItem(dataKey(ACTIVE_USER_ID) + ':pre-folder-load:' + Date.now(), JSON.stringify(DATA));
+    }catch(e){}
+    var defaults = defaultData();
+    DATA = Object.assign({}, defaults, incoming);
+    DATA.settings = Object.assign({}, defaults.settings, incoming.settings || {});
+    saveData();
+    applyTheme();
+    refreshCurrentPage();
+    renderSettingsPage();
+    showToast('Loaded data from ' + (fileName || 'JSON file'));
+  });
+}
+
+function renderFolderStorageControls(){
+  var status = document.getElementById('folderStorageStatus');
+  if(!status) return;
+  if(!folderStorageSupported()){
+    status.textContent = 'This browser does not support direct folder access. You can still use Download backup.';
+    var connect = document.getElementById('connectStorageFolderBtn');
+    if(connect) connect.disabled = true;
+    return;
+  }
+  var connectBtn = document.getElementById('connectStorageFolderBtn');
+  if(connectBtn) connectBtn.disabled = false;
+  if(STORAGE_FOLDER_HANDLE){
+    status.textContent = 'Folder connected · ' + currentStorageProfileFolderName() + '/' + storageFolderFileName() + (STORAGE_LAST_WRITE ? ' · last saved ' + new Date(STORAGE_LAST_WRITE).toLocaleTimeString() : '');
+  }else{
+    status.textContent = 'No folder connected. Choose a folder to enable automatic file saving.';
+  }
+}
+async function maybeShowFolderSetupPrompt(){
+  if(!ACTIVE_USER_ID) return;
+  var promptKey = String(ACTIVE_USER_ID);
+  if(FOLDER_PROMPT_SHOWN_THIS_LOAD[promptKey]) return;
+  // A remembered folder with granted permission counts as connected; do not interrupt the user.
+  var handle = STORAGE_FOLDER_HANDLE;
+  if(!handle){ try{ handle = await retrieveFolderHandle(); }catch(e){} }
+  if(handle && await ensureFolderPermission(handle, false)){
+    STORAGE_FOLDER_HANDLE = handle;
+    return;
+  }
+  setTimeout(function(){
+    if(!ACTIVE_USER_ID || FOLDER_PROMPT_SHOWN_THIS_LOAD[promptKey]) return;
+    if($('#lockScreen') && !$('#lockScreen').classList.contains('hidden')) return;
+    if($('#appShell') && $('#appShell').classList.contains('hidden')) return;
+    FOLDER_PROMPT_SHOWN_THIS_LOAD[promptKey] = true;
+    var supported = folderStorageSupported();
+    var folderAlreadyConnected = !!STORAGE_FOLDER_HANDLE;
+    openModal(
+      '<div class="modal-head"><h2>Connect your storage folder?</h2></div>' +
+      '<div style="font-size:34px;margin:4px 0 10px;">📁</div>' +
+      '<p class="muted">Connect a local folder to keep an additional JSON copy of this profile. You can still use the app without connecting one, and you can download or restore backups at any time.</p>' +
+      (supported
+        ? '<p class="faint">Each profile gets its own subfolder and data file. This prompt appears only once per page session while the folder is disconnected.</p>'
+        : '<p class="faint">Direct folder access is not supported in this browser. You can continue with browser storage and use Backup &amp; Restore to import or export JSON files.</p>') +
+      '<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:18px;">' +
+      (supported ? '<button type="button" class="btn btn-primary" id="folderPromptSetupBtn">' + (folderAlreadyConnected ? 'Reconnect folder' : 'Choose folder') + '</button>' : '') +
+      '<button type="button" class="btn" id="folderPromptBackupBtn">Open Backup &amp; Restore</button>' +
+      '<button type="button" class="btn" id="folderPromptLaterBtn">Maybe later</button>' +
+      '</div>'
+    );
+    var setup = $('#folderPromptSetupBtn');
+    if(setup) setup.addEventListener('click', function(){ closeModal(); connectStorageFolder(); });
+    $('#folderPromptBackupBtn').addEventListener('click', function(){ closeModal(); navigate('backup'); });
+    $('#folderPromptLaterBtn').addEventListener('click', closeModal);
+  }, 500);
+}
+
+async function restoreFolderStorageConnection(){
+  if(!folderStorageSupported()){ renderFolderStorageControls(); return; }
+  try{
+    var handle = await retrieveFolderHandle();
+    if(!handle){ renderFolderStorageControls(); return; }
+    STORAGE_FOLDER_HANDLE = handle;
+    if(await ensureFolderPermission(handle, false)){
+      folderStorageStatus('Folder reconnected. Checking the latest profile copy…');
+      // Do not overwrite the browser copy on startup; the folder file is a secondary copy.
+      renderFolderStorageControls();
+    }else{
+      folderStorageStatus('A folder was remembered, but permission must be granted again. Tap “Choose storage folder”.');
+      renderFolderStorageControls();
+    }
+  }catch(e){ renderFolderStorageControls(); }
+}
+document.addEventListener('DOMContentLoaded', restoreFolderStorageConnection);
+
 
 /* ============================================================
    AVATARS
@@ -2029,6 +2377,13 @@ function categoryIcon(type, name){
   var c = findCategory(type, name);
   return c ? c.icon : (type==='income' ? '➕' : '📦');
 }
+// Prefer the saved category icon, but correct obvious vehicle/fuel descriptions
+// when an older or incorrectly categorized record was saved under Food.
+function recordCategoryIcon(type, category, description, subcategory){
+  var text = String((description || '') + ' ' + (subcategory || '')).toLowerCase();
+  if(type !== 'income' && /\b(petrol|gasoline|diesel|fuel|refuelling|refueling|vehicle|car expense|bike expense|motorbike|scooter|taxi fare|auto fare|bus fare|train fare|parking fee)\b/.test(text)) return '🚗';
+  return categoryIcon(type, category);
+}
 function genTxId(type, dateISO){
   var prefix = type==='income' ? 'INC' : 'EXP';
   var dstr = dateISO.replace(/-/g,'');
@@ -2081,45 +2436,100 @@ function applyFiltersAndSort(list){
 /* ============================================================
    RECURRING ENGINE
    ============================================================ */
+function recurringInterval(r){
+  var n = Number(r && r.interval);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+}
 function nextDateForRecurring(r, fromISO){
-  switch(r.frequency){
-    case 'daily': return addDaysISO(fromISO, r.interval||1);
-    case 'weekly': return addDaysISO(fromISO, 7*(r.interval||1));
-    case 'yearly': {
-      var d = parseISO(fromISO);
-      return (d.getFullYear()+(r.interval||1))+'-'+fromISO.slice(5);
-    }
-    case 'monthly': default: return addMonthsISO(fromISO, r.interval||1, r.lastDayMode);
+  var interval = recurringInterval(r);
+  var frequency = String(r && r.frequency || 'monthly').trim().toLowerCase();
+  // Weekly means exactly seven calendar days per interval, never a fixed number
+  // of milliseconds (which can drift around daylight-saving changes).
+  if(frequency === 'weekly') return addDaysISO(fromISO, 7 * interval);
+  if(frequency === 'daily') return addDaysISO(fromISO, interval);
+  if(frequency === 'yearly'){
+    var d = parseISO(fromISO);
+    var year = d.getFullYear() + interval;
+    var month = d.getMonth();
+    var day = r.lastDayMode ? daysInMonth(year, month) : Math.min(d.getDate(), daysInMonth(year, month));
+    return year+'-'+pad2(month+1)+'-'+pad2(day);
   }
+  return addMonthsISO(fromISO, interval, !!r.lastDayMode);
+}
+function recurringDateAtIndex(r, index){
+  // Calculate each occurrence from the original start date. This avoids drift
+  // (for example, Jan 31 -> Feb 28 -> Mar 28) and guarantees weekly dates stay
+  // exactly 7 days apart, even after old data or an edit.
+  var interval = recurringInterval(r);
+  var frequency = String(r && r.frequency || 'monthly').trim().toLowerCase();
+  var steps = Math.max(0, Math.floor(Number(index) || 0));
+  if(frequency === 'weekly') return addDaysISO(r.startDate, 7 * interval * steps);
+  if(frequency === 'daily') return addDaysISO(r.startDate, interval * steps);
+  if(frequency === 'yearly'){
+    var start = parseISO(r.startDate);
+    var year = start.getFullYear() + interval * steps;
+    var month = start.getMonth();
+    var day = r.lastDayMode ? daysInMonth(year, month) : Math.min(start.getDate(), daysInMonth(year, month));
+    return year+'-'+pad2(month+1)+'-'+pad2(day);
+  }
+  return addMonthsISO(r.startDate, interval * steps, !!r.lastDayMode);
+}
+function recurringOccurrenceExists(ruleId, occurrenceDate){
+  return DATA.transactions.some(function(t){
+    return t.recurringId===ruleId && (t.recurringDate||t.date)===occurrenceDate;
+  });
 }
 function runRecurringEngine(){
-  if(!DATA.recurring || !DATA.recurring.length) return;
+  if(!Array.isArray(DATA.recurring) || !DATA.recurring.length) return 0;
   var today = todayISO();
   var created = 0;
   DATA.recurring.forEach(function(r){
-    if(r.paused) return;
-    var cursor = r.lastGenerated ? nextDateForRecurring(r, r.lastGenerated) : r.startDate;
-    var guard = 0;
-    while(cursor <= today && guard < 500){
-      guard++;
+    if(r.paused || !r.id || !isValidISODate(r.startDate)) return;
+    var amountMinor = Number(r.amountMinor);
+    if(!Number.isFinite(amountMinor) || amountMinor <= 0) return;
+    var occurrenceIndex = 0;
+    var cursor = recurringDateAtIndex(r, occurrenceIndex);
+    // Build the schedule from the original start date and integer occurrence
+    // index. This guarantees weekly items are 7 days apart and avoids date drift.
+    while(cursor <= today && occurrenceIndex < 5000){
       if(r.endDate && cursor > r.endDate) break;
-      var exists = DATA.transactions.some(function(t){ return t.recurringId===r.id && t.date===cursor; });
-      if(!exists){
+      var skipped = Array.isArray(r.skippedDates) && r.skippedDates.indexOf(cursor) >= 0;
+      if(!skipped && !recurringOccurrenceExists(r.id, cursor)){
         var id = genTxId(r.type, cursor);
         DATA.transactions.push({
-          id: id, type: r.type, date: cursor, time: r.time||'09:00',
-          amountMinor: r.amountMinor, category: r.category, subcategory: r.subcategory||'',
-          paymentMethod: r.paymentMethod||'', upiApp:'', description: r.description||r.name,
-          notes: 'Auto-generated (recurring: '+r.name+')', location:'', merchant:'', tags:['recurring'],
-          recurringId: r.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+          id:id, type:r.type==='income'?'income':'expense', date:cursor, recurringDate:cursor,
+          time:r.time||'09:00', amountMinor:Math.round(amountMinor), category:r.category,
+          subcategory:r.subcategory||'', paymentMethod:r.paymentMethod||'', upiApp:'',
+          description:r.description||r.name, notes:'Auto-generated (recurring: '+r.name+')',
+          location:'', merchant:'', tags:['recurring'], recurringId:r.id,
+          createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()
         });
         created++;
       }
-      r.lastGenerated = cursor;
-      cursor = nextDateForRecurring(r, cursor);
+      occurrenceIndex++;
+      var next = recurringDateAtIndex(r, occurrenceIndex);
+      if(!isValidISODate(next) || next <= cursor) break;
+      cursor = next;
     }
+    // lastGenerated is informational only; it must not control backfilling.
+    var lastDue = null;
+    var dueIndex = 0;
+    var scheduled = recurringDateAtIndex(r, dueIndex);
+    while(scheduled <= today && dueIndex < 5000){
+      if(r.endDate && scheduled > r.endDate) break;
+      lastDue = scheduled;
+      dueIndex++;
+      var following = recurringDateAtIndex(r, dueIndex);
+      if(!isValidISODate(following) || following <= scheduled) break;
+      scheduled = following;
+    }
+    r.lastGenerated = lastDue;
   });
-  if(created){ saveData(); showToast(created + (created===1?' recurring transaction was':' recurring transactions were') + ' added automatically.'); }
+  if(created){
+    saveData();
+    showToast(created + (created===1?' recurring transaction was':' recurring transactions were') + ' added automatically.');
+  }
+  return created;
 }
 
 /* ============================================================
@@ -2137,7 +2547,7 @@ function navigate(route){
   var pageId = isAddIncome ? 'page-add' : ('page-'+route);
   var page = document.getElementById(pageId);
   if(page) page.classList.remove('hidden');
-  $('#topbarTitle').textContent = ROUTE_TITLES[route] || 'Ledger';
+  $('#topbarTitle').textContent = ROUTE_TITLES[route] || 'Personal Expense Tracker';
   $all('.nav-link, .bn-item').forEach(function(b){ b.classList.toggle('active', b.dataset.route===route); });
   if(route==='add' || route==='income'){ setTxType(isAddIncome ? 'income' : 'expense'); if(!EDIT_ID) resetTxForm(); }
   if(route==='dashboard') renderDashboard();
@@ -2160,7 +2570,7 @@ document.addEventListener('click', function(e){
    TRANSACTION LEDGER ROW RENDERER
    ============================================================ */
 function txRowHTML(t){
-  var icon = categoryIcon(t.type, t.category);
+  var icon = recordCategoryIcon(t.type, t.category, t.description, t.subcategory);
   var sub = [formatDateShort(t.date), t.time, t.paymentMethod].filter(Boolean).join(' • ');
   var amtClass = t.type==='income' ? 'income' : '';
   var sign = t.type==='income' ? '+' : '-';
@@ -2219,6 +2629,47 @@ function selectVisibleTransactions(){
   updateTxSelectionUI();
   rows.forEach(function(row){ row.classList.add('tx-selected'); var c=row.querySelector('.tx-select-check'); if(c)c.textContent='✓'; });
 }
+function confirmDeleteTx(id){
+  var tx = DATA.transactions.find(function(t){ return String(t.id) === String(id); });
+  if(!tx){
+    showToast('Transaction not found. Please refresh the list.');
+    refreshCurrentPage();
+    return;
+  }
+  var description = tx.description || tx.category || (tx.type === 'income' ? 'Income' : 'Expense');
+  var amount = fmtMoney(tx.amountMinor);
+  confirmDialog({
+    title: 'Delete this transaction?',
+    body: 'Delete “' + esc(description) + '” (' + amount + ')? This cannot be undone.',
+    okLabel: 'Delete transaction',
+    danger: true
+  }, function(){
+    // Re-check the live data after confirmation in case the list changed.
+    var index = DATA.transactions.findIndex(function(t){ return String(t.id) === String(id); });
+    if(index < 0){
+      showToast('Transaction was already removed.');
+      refreshCurrentPage();
+      return;
+    }
+    var removed = DATA.transactions[index];
+    DATA.transactions.splice(index, 1);
+    // Remember manually deleted recurring occurrences so the recurring engine
+    // does not recreate them on the next refresh.
+    if(removed.recurringId && isValidISODate(removed.recurringDate || removed.date)){
+      var rule = DATA.recurring.find(function(r){ return r.id === removed.recurringId; });
+      if(rule){
+        if(!Array.isArray(rule.skippedDates)) rule.skippedDates = [];
+        var occurrenceDate = removed.recurringDate || removed.date;
+        if(rule.skippedDates.indexOf(occurrenceDate) < 0) rule.skippedDates.push(occurrenceDate);
+      }
+    }
+    delete SELECTED_TX_IDS[id];
+    saveData();
+    refreshCurrentPage();
+    showToast('Transaction deleted');
+  });
+}
+
 function bulkDeleteSelectedTransactions(){
   var ids = Object.keys(SELECTED_TX_IDS);
   if(!ids.length) return;
@@ -2524,7 +2975,7 @@ function exportCSV(){
     rows.push([t.id,t.type,t.date,t.time,fromMinor(t.amountMinor).toFixed(2),t.category,t.subcategory||'',t.paymentMethod||'',t.description||'',t.merchant||'',t.location||'',(t.tags||[]).join(' '),t.notes||'']);
   });
   var csv = rows.map(function(r){ return r.map(escapeCsv).join(','); }).join('\n');
-  downloadFile('Ledger_Transactions_'+todayISO()+'.csv', csv, 'text/csv');
+  downloadFile('Personal_Expense_Tracker_Transactions_'+todayISO()+'.csv', csv, 'text/csv');
 }
 $('#exportCsvBtn').addEventListener('click', exportCSV);
 $('#exportCsvBtn2').addEventListener('click', exportCSV);
@@ -2930,11 +3381,15 @@ function recurringFormModal(existing){
   $all('#rtType .tab').forEach(function(b){ b.onclick=function(){ rType=b.dataset.t; $all('#rtType .tab').forEach(function(x){x.classList.toggle('active',x===b);}); fillCats(); }; });
   $('#r-cancel').onclick=closeModal;
   $('#r-save').onclick=function(){
-    var amt=toMinor($('#r-amount').value);
+    var amountRaw=$('#r-amount').value.trim();
+    var amt=toMinor(amountRaw);
     var name=$('#r-name').value.trim();
     var startDate=$('#r-start').value;
     var endDate=$('#r-end').value||null;
-    if(!name || isNaN(amt) || amt<=0 || !isValidISODate(startDate)){ showToast('Please fill in a name, valid amount and start date.'); return; }
+    if(!name || !amountRaw || isNaN(amt) || amt<=0 || !isValidISODate(startDate)){
+      if(!amountRaw) $('#r-amount').focus();
+      showToast('Please enter a name, a valid amount greater than zero, and a start date.'); return;
+    }
     if(endDate && (!isValidISODate(endDate) || endDate<startDate)){ showToast('End date must be valid and not before the start date.'); return; }
     if(isEdit){
       existing.name=name; existing.type=rType; existing.amountMinor=amt; existing.category=$('#r-category').value;
@@ -2959,12 +3414,18 @@ function renderRecurringPage(){
   var el=$('#recurringList');
   if(!list.length){ el.innerHTML=emptyStateHTML('🔁','No recurring transactions','Set up rent, subscriptions or bills to auto-add each period.',null,''); return; }
   el.innerHTML=list.map(function(r){
-    var icon=categoryIcon(r.type,r.category);
+    var icon=recordCategoryIcon(r.type,r.category,r.name || r.description,r.subcategory);
+    var generated=DATA.transactions.filter(function(t){return t.recurringId===r.id;});
+    var uniqueGenerated = []; var seenOccurrences = Object.create(null);
+    generated.forEach(function(t){ var occurrence = t.recurringDate || t.date; var key = String(occurrence); if(!seenOccurrences[key]){ seenOccurrences[key]=true; uniqueGenerated.push(t); } });
+    generated = uniqueGenerated;
+    var accruedMinor=generated.reduce(function(sum,t){return sum+(Number(t.amountMinor)||0);},0);
+    var nextDue=r.startDate; var nextGuard=0; while(nextDue<=todayISO() && nextGuard++<5000){ var candidate=recurringDateAtIndex(r,nextGuard); if(candidate<=nextDue) break; nextDue=candidate; }
     return '<div class="ledger-row" data-id="'+r.id+'">' +
       '<div class="cat-icon">'+icon+'</div>' +
       '<div class="ledger-main"><div class="ledger-title">'+esc(r.name)+'</div>' +
-      '<div class="ledger-sub">'+esc(r.frequency)+(r.interval>1?' ×'+r.interval:'')+' • next: '+esc(r.lastGenerated?nextDateForRecurring(r,r.lastGenerated):r.startDate)+(r.paused?' • paused':'')+'</div></div>' +
-      '<div class="ledger-amt num '+(r.type==='income'?'income':'')+'">'+(r.type==='income'?'+':'-')+fmtMoney(r.amountMinor)+'</div>' +
+      '<div class="ledger-sub">'+esc(r.frequency)+(r.interval>1?' ×'+r.interval:'')+' • next: '+esc(nextDue)+(r.paused?' • paused':'')+' • '+generated.length+' occurrence(s) recorded • total '+fmtMoney(accruedMinor)+'</div></div>' +
+      '<div class="ledger-amt num '+(r.type==='income'?'income':'')+'">'+(r.type==='income'?'+':'-')+fmtMoney(r.amountMinor)+' / occurrence</div>' +
       '<div class="ledger-row-actions">' +
         '<button data-act="edit" aria-label="Edit" title="Edit">✏️</button>' +
         '<button data-act="pause" aria-label="Pause/resume" title="Pause/resume">'+(r.paused?'▶️':'⏸️')+'</button>' +
@@ -3028,7 +3489,7 @@ $('#restoreInput').addEventListener('change', function(e){
     catch(err){ showToast('That file is not valid JSON — nothing was changed.'); return; }
     var incoming = parsed && parsed.data ? parsed.data : parsed;
     if(!incoming || !Array.isArray(incoming.transactions)){
-      showToast('That file does not look like a Ledger backup — nothing was changed.'); return;
+      showToast('That file does not look like a Personal Expense Tracker backup — nothing was changed.'); return;
     }
     confirmDialog({
       title:'Restore this backup?',
@@ -3063,7 +3524,7 @@ function openCurrencyConverter(){
   var to = keys.find(function(c){ return c!==from; }) || from;
   openModal(
     '<div class="modal-head"><h2>Currency converter</h2><button class="icon-btn" id="ccClose" type="button" aria-label="Close currency converter" title="Close">✕</button></div>' +
-    '<p class="muted">Convert an amount between any currencies supported by Ledger. This does not change or modify your saved transactions.</p>' +
+    '<p class="muted">Convert an amount between any currencies supported by Personal Expense Tracker. This does not change or modify your saved transactions.</p>' +
     '<div class="field"><label for="ccAmount">Amount</label><input id="ccAmount" type="number" min="0" step="any" value="1" inputmode="decimal" placeholder="Enter amount"></div>' +
     '<div class="currency-converter-grid">' +
       '<div class="field"><label for="ccFrom">From</label><select id="ccFrom">'+currencyOptions(from)+'</select></div>' +
@@ -3155,6 +3616,7 @@ function openCurrencyConverter(){
    SETTINGS
    ============================================================ */
 function renderSettingsPage(){
+  renderFolderStorageControls();
   $all('#settingsThemeChips .chip').forEach(function(b){ b.classList.toggle('active', b.dataset.v===DATA.settings.theme); });
   $all('#settingsLayoutChips .chip').forEach(function(b){ b.classList.toggle('active', b.dataset.v===DATA.settings.layout); });
   $('#settingsCurrency').innerHTML = currencyOptions(DATA.settings.currency);
@@ -3166,6 +3628,18 @@ function renderSettingsPage(){
   renderDescriptionPresetManager();
   renderDescriptionPresetChips();
 }
+$('#connectStorageFolderBtn').addEventListener('click', connectStorageFolder);
+$('#saveStorageFileBtn').addEventListener('click', function(){ writeFolderStorageFile(true); });
+$('#loadStorageFileBtn').addEventListener('click', loadFolderStorageFile);
+$('#folderJsonPicker').addEventListener('change', function(e){ if(e.target.files && e.target.files[0]) importSelectedJsonFile(e.target.files[0]); });
+$('#disconnectStorageFolderBtn').addEventListener('click', async function(){
+  STORAGE_FOLDER_HANDLE = null;
+  await clearFolderHandle();
+  if(STORAGE_WRITE_TIMER) clearTimeout(STORAGE_WRITE_TIMER);
+  folderStorageStatus('Folder disconnected. Browser storage remains active.');
+  renderFolderStorageControls();
+  showToast('Storage folder disconnected.');
+});
 $all('#settingsThemeChips .chip').forEach(function(b){ b.addEventListener('click', function(){ DATA.settings.theme=b.dataset.v; saveData(); applyTheme(); renderSettingsPage(); }); });
 $all('#settingsLayoutChips .chip').forEach(function(b){ b.addEventListener('click', function(){ DATA.settings.layout=b.dataset.v; saveData(); applyTheme(); renderSettingsPage(); }); });
 $all('.theme-btn').forEach(function(b){ b.addEventListener('click', function(){ DATA.settings.theme=b.dataset.themeChoice; saveData(); applyTheme(); if(CURRENT_ROUTE==='settings') renderSettingsPage(); }); });
@@ -3215,7 +3689,7 @@ function renderCustomCurrencyList(){
 function openAddCustomCurrencyModal(){
   openModal(
     '<div class="modal-head"><h2>Add a currency</h2><button class="icon-btn" id="ccuClose" type="button" aria-label="Close" title="Close">✕</button></div>' +
-    '<p class="muted">Create a currency just for this profile. It will be available throughout Ledger, including expenses, income, quick amounts, settings and the converter.</p>' +
+    '<p class="muted">Create a currency just for this profile. It will be available throughout Personal Expense Tracker, including expenses, income, quick amounts, settings and the converter.</p>' +
     '<div class="field"><label for="ccuCode">Currency code</label><input id="ccuCode" maxlength="6" placeholder="e.g. KES" autocapitalize="characters" spellcheck="false"><div class="faint">2–6 letters or numbers, for example KES or BTC.</div></div>' +
     '<div class="field"><label for="ccuName">Currency name</label><input id="ccuName" maxlength="40" placeholder="e.g. Kenyan Shilling"></div>' +
     '<div class="field"><label for="ccuSymbol">Symbol</label><input id="ccuSymbol" maxlength="8" placeholder="e.g. KSh"></div>' +
@@ -3438,16 +3912,57 @@ function switchUser(id){
   applyTheme();
   renderSidebarProfile();
   navigate('dashboard');
+  maybeShowFolderSetupPrompt();
+}
+function downloadProfileBackupForDeletion(id, profile){
+  var profileData;
+  try{
+    profileData = id===ACTIVE_USER_ID ? DATA : JSON.parse(localStorage.getItem(dataKey(id)) || 'null');
+  }catch(e){ profileData = null; }
+  if(!profileData || !Array.isArray(profileData.transactions)) profileData = defaultData();
+  var bundle = {
+    app:'personal-expense-tracker', version:1, exportedAt:new Date().toISOString(),
+    profileId:id, profileName:(profile && profile.name) || 'Profile', data:profileData
+  };
+  downloadFile('Personal_Expense_Tracker_Backup_'+String((profile && profile.name)||'Profile').replace(/[^a-z0-9_-]+/gi,'_')+'_'+todayISO()+'.json', JSON.stringify(bundle,null,2), 'application/json');
 }
 function deleteProfile(id){
   var u = USERS.find(function(x){return x.id===id;});
   if(!u) return;
+  openModal(
+    '<div class="modal-head"><h2>Back up before deleting?</h2></div>' +
+    '<p>Would you like to download a backup of <strong>'+esc(u.name)+'</strong> before deleting this profile? You can import this JSON backup into a new profile later.</p>' +
+    '<div class="modal-actions" style="flex-wrap:wrap;">' +
+      '<button class="btn btn-ghost" id="cancelProfileDelete">Cancel</button>' +
+      '<button class="btn btn-danger" id="deleteWithoutProfileBackup">Delete without backup</button>' +
+      '<button class="btn btn-primary" id="downloadThenDeleteProfile">Download backup &amp; continue</button>' +
+    '</div>'
+  );
+  $('#cancelProfileDelete').onclick=closeModal;
+  $('#deleteWithoutProfileBackup').onclick=function(){ closeModal(); confirmProfileDeletion(id,u); };
+  $('#downloadThenDeleteProfile').onclick=function(){
+    downloadProfileBackupForDeletion(id,u);
+    closeModal();
+    confirmProfileDeletion(id,u);
+  };
+}
+function confirmProfileDeletion(id,u){
   confirmDialog({
     title:'Delete profile "'+u.name+'"?',
-    body:'This permanently deletes all data for this profile from this device. This cannot be undone.',
+    body:'This permanently deletes this profile and its browser-stored data. If accessible, its profile folder and contents will also be deleted. The shared local-folder connection will be disconnected too; remaining profiles can reconnect the folder in Settings. This cannot be undone.',
     okLabel:'Delete profile', danger:true
-  }, function(){
+  }, async function(){
+    if(STORAGE_WRITE_TIMER){ clearTimeout(STORAGE_WRITE_TIMER); STORAGE_WRITE_TIMER = null; }
+    var folderResult = await deleteProfileStorageFolder(id, u);
+    // The selected root folder handle is shared by all profiles. Clear the connection
+    // when a profile is deleted, as requested; remaining profiles can reconnect it.
+    try{ await clearFolderHandle(); }catch(e){}
+    STORAGE_FOLDER_HANDLE = null;
+    if(STORAGE_WRITE_TIMER){ clearTimeout(STORAGE_WRITE_TIMER); STORAGE_WRITE_TIMER = null; }
+    STORAGE_WRITE_PENDING = false;
     try{ localStorage.removeItem(dataKey(id)); }catch(e){}
+    try{ localStorage.removeItem('personalExpenseTrackerFolderPromptShown:' + id); }catch(e){}
+    delete FOLDER_PROMPT_SHOWN_THIS_LOAD[String(id)];
     USERS = USERS.filter(function(x){return x.id!==id;});
     saveUsers();
     if(id===ACTIVE_USER_ID){
@@ -3463,11 +3978,17 @@ function deleteProfile(id){
         $('#ob-currency').value = 'INR';
         obAvatarData = null;
         $('#ob-avatar-preview').outerHTML = '<span id="ob-avatar-preview" class="avatar-lg-fallback">?</span>';
+        if(!folderResult.deleted && folderResult.reason !== 'no-folder') showToast('Profile deleted from browser storage, but its folder could not be deleted. You may need to remove it manually from the selected folder.');
         return;
       }
     }
     closeModal();
     openProfileSwitcher();
+    if(!folderResult.deleted && folderResult.reason !== 'no-folder'){
+      showToast('Profile deleted from browser storage, but its folder could not be deleted. You may need to remove it manually from the selected folder.');
+    } else {
+      showToast('Profile and its accessible storage folder deleted.');
+    }
   });
 }
 
@@ -3516,6 +4037,7 @@ function attemptUnlock(){
       $('#appShell').classList.remove('hidden');
       $('#lock-pin').value='';
       $('#lock-error').classList.add('hidden');
+      maybeShowFolderSetupPrompt();
     } else {
       $('#lock-error').classList.remove('hidden');
     }
@@ -3556,6 +4078,7 @@ function startApp(){
   $('#appShell').classList.remove('hidden');
   runRecurringEngine();
   navigate('dashboard');
+  maybeShowFolderSetupPrompt();
 }
 function init(){
   loadUsers();
