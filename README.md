@@ -1,435 +1,264 @@
-# Personal Expense Tracker — README & Developer Guide
+# Personal Expense Tracker
 
-**Project name:** Personal Expense Tracker  
-**Application type:** Single-page, offline-first web application  
-**Main technologies:** HTML, CSS, vanilla JavaScript, browser `localStorage`  
-**Development workflow:** Visual Studio Code → Git local repository → remote Git repository → GitHub Pages (if enabled)
+A single-page, offline-first expense and income tracker built with **HTML, CSS, and vanilla JavaScript**. The application keeps each profile's financial records in browser storage and includes tools for budgeting, recurring transactions, reports, currency conversion, and data backup.
 
----
+> **Current project documentation:** This README describes the current implementation represented by the supplied project documentation. No numbered software release/version was provided, so this file does not assign one.
 
-## 1. Project overview
+## Table of contents
 
-Personal Expense Tracker helps a user record income and expenses, organize transactions, set budgets, automate recurring entries, and review financial activity. It is implemented in one HTML file: the page structure, styling, and JavaScript application logic are embedded in the same file.
+- [Overview](#overview)
+- [Features](#features)
+- [Technology and project structure](#technology-and-project-structure)
+- [Getting started](#getting-started)
+- [How the application works](#how-the-application-works)
+- [Data storage and privacy](#data-storage-and-privacy)
+- [Backup, restore, and export](#backup-restore-and-export)
+- [Browser compatibility](#browser-compatibility)
+- [Development workflow](#development-workflow)
+- [Known limitations](#known-limitations)
 
-The app is designed to keep its financial records in the browser on the current device. It does not require a server-side database or an online account for its core tracking features. Currency conversion may use network access when a rate lookup is requested; the rest of the local tracking workflow is designed to work offline.
+## Overview
 
-> **Privacy note:** Data stored in `localStorage` is tied to the browser origin and browser profile. Clearing site data, changing browsers, or using a different device does not automatically move the data. Use the backup feature to make a portable copy.
+Personal Expense Tracker helps users record income and expenses, organize transactions, set budgets, schedule recurring entries, and review financial activity. The application is implemented in a single HTML file: the page structure, styles, and JavaScript logic are embedded together.
 
-## 2. High-level application workflow
+The core tracking workflow does not require a server-side database or an online account. Records are stored in the browser on the current device. Currency conversion may need an internet connection when fresh exchange rates are requested.
+
+## Features
+
+- **Multiple local profiles** with separate financial datasets.
+- **Income and expense tracking**, including categories, subcategories, payment methods, descriptions, merchants, and locations.
+- **Transaction search, filtering, and sorting** by text, type, category, payment method, date range, and amount.
+- **Dashboard** with balance, monthly income and expenses, remaining amount, today's spending, budget status, and recent transactions.
+- **Calendar** for viewing transaction activity by date.
+- **Reports and charts** for monthly/yearly summaries, savings, category distribution, daily spending, and payment-method breakdowns.
+- **Monthly budgets**, including overall and category-specific limits.
+- **Recurring transactions** on daily, weekly, monthly, or yearly schedules.
+- **Themes and layout preferences**, including Light, Dark, and System themes.
+- **Optional PIN lock** to discourage casual access on the same device.
+- **Currency converter** with built-in currency definitions for INR, USD, EUR, GBP, JPY, CAD, AED, and AUD, plus custom currencies.
+- **JSON backup and restore** for moving or recovering profile data.
+- **CSV transaction export** for spreadsheet use.
+- **Optional local-folder JSON copies** in supported browsers through the File System Access API.
+- **Saved descriptions** for reusing common transaction descriptions.
+- **Responsive layout** with mobile navigation at narrower screen widths.
+
+## Technology and project structure
+
+| Technology | Purpose |
+|---|---|
+| HTML | Application structure, forms, pages, dialogs, and navigation |
+| CSS | Themes, responsive layout, cards, forms, and interface styling |
+| Vanilla JavaScript | State, validation, calculations, navigation, recurring rules, and import/export |
+| `localStorage` | Primary in-browser storage for profiles and financial data |
+| IndexedDB / browser file APIs | May be used to retain a selected local-folder handle and write optional JSON copies, where supported |
+| Git and GitHub | Source control and remote repository hosting; GitHub Pages can publish the static website when configured |
+
+Suggested repository structure:
+
+```text
+personal-expense-tracker/
+├── index.html    # Application: HTML, CSS, and JavaScript
+└── README.md     # Project documentation
+```
+
+The application itself is designed as a single HTML file. The structure above is a suggested layout, not a requirement imposed by the application.
+
+## Getting started
+
+### Run locally
+
+1. Download or clone the project repository.
+2. Open the project folder in Visual Studio Code or another editor.
+3. Open `index.html` in a supported browser. If a browser feature requires a secure context, use `localhost` or an HTTPS deployment where applicable.
+4. On first launch, follow onboarding to create a profile, enter a name, optionally choose a picture, and select a currency.
+5. Add income and expenses, then explore the dashboard, transactions, calendar, reports, budgets, and settings.
+
+No package installation or build step is documented for the single-file application.
+
+### Publish with GitHub Pages
+
+1. Push the project files to a GitHub repository.
+2. Open the repository's **Settings → Pages** section.
+3. Choose the branch and folder containing the website files.
+4. Wait for the Pages deployment to finish, then open the published URL.
+
+GitHub Pages serves the static application files. It does **not** upload, back up, or synchronize visitors' browser-stored financial records.
+
+## How the application works
+
+### Startup flow
 
 ```mermaid
 flowchart TD
-    A[Open the HTML website] --> B[Load profile index from localStorage]
-    B --> C{Any profiles saved?}
-    C -- No --> D[Show first-time onboarding]
-    D --> E[Enter name, optional picture, currency]
-    E --> F[Create profile and default data]
-    C -- Yes --> G[Select saved active profile]
-    G --> H[Load that profile's data]
-    F --> I[Apply theme and layout]
-    H --> I
-    I --> J{PIN configured?}
-    J -- Yes --> K[Show PIN lock screen]
-    K --> L{PIN matches stored hash?}
-    L -- No --> K
-    L -- Yes --> M[Show app]
-    J -- No --> M
-    M --> N[Run recurring transaction engine]
-    N --> O[Open Dashboard]
-    O --> P[User navigates to a feature]
-    P --> Q[Validate and update in-memory DATA]
-    Q --> R[Save DATA to localStorage]
-    R --> S[Refresh the relevant view]
+    A[Open the HTML application] --> B[Load profile index from localStorage]
+    B --> C{Profiles exist?}
+    C -- No --> D[Show onboarding]
+    D --> E[Create profile and default data]
+    C -- Yes --> F[Load active profile data]
+    E --> G[Apply theme and layout]
+    F --> G
+    G --> H{PIN configured?}
+    H -- Yes --> I[Show PIN lock screen]
+    I --> J{PIN accepted?}
+    J -- No --> I
+    J -- Yes --> K[Start application]
+    H -- No --> K
+    K --> L[Run recurring transaction engine]
+    L --> M[Open dashboard]
 ```
 
-### Startup sequence
+At a high level, initialization loads the profile index, loads the active profile's data, applies settings, checks the optional PIN lock, processes due recurring transactions, and opens the dashboard.
 
-1. `init()` runs when the script loads.
-2. `loadUsers()` reads the profile list and active-profile ID.
-3. If no profiles exist, the onboarding screen is shown.
-4. Otherwise, the active profile is validated and `loadDataForUser(id)` loads its data.
-5. `startApp()` applies the theme, updates the profile display, and checks whether a PIN is configured.
-6. If PIN protection is enabled, the lock screen is displayed until the PIN is accepted.
-7. The recurring engine generates any due recurring transactions that are missing.
-8. `navigate('dashboard')` opens the dashboard and renders its values.
+### Transaction lifecycle
 
----
+1. Choose **Add Expense** or **Add Income**.
+2. Enter the amount, date, category, and any optional details.
+3. The application validates required fields and checks whether the entry resembles a recent duplicate.
+4. The amount is converted to integer minor units before being stored.
+5. The application creates a new record or updates the existing record when editing.
+6. The active profile data is saved to browser storage and the relevant view is refreshed.
 
-## 3. Main entities and relationships
+The amount must be numeric, positive, and within the application's allowed maximum. The date must be valid, a category is required, and future dates can be restricted in Settings.
 
-The following diagram describes the main data entities in the application. These are JavaScript objects and arrays stored as JSON, not database tables.
+### Profiles and data model
 
-```mermaid
-erDiagram
-    PROFILE_INDEX ||--o{ PROFILE_DATA : identifies
-    PROFILE_DATA ||--o{ TRANSACTION : contains
-    PROFILE_DATA ||--o{ EXPENSE_CATEGORY : defines
-    PROFILE_DATA ||--o{ INCOME_CATEGORY : defines
-    PROFILE_DATA ||--o{ RECURRING_RULE : schedules
-    PROFILE_DATA ||--o{ CUSTOM_CURRENCY : defines
-    PROFILE_DATA ||--|| SETTINGS : configures
-    PROFILE_DATA ||--o{ MONTHLY_BUDGET : tracks
-    EXPENSE_CATEGORY ||--o{ TRANSACTION : categorizes
-    INCOME_CATEGORY ||--o{ TRANSACTION : categorizes
-    RECURRING_RULE o|--o{ TRANSACTION : generates
+Each profile has a separate dataset. The shared profile index stores profile identifiers and display information; the active profile's data includes transactions, categories, payment methods, budgets, recurring rules, and settings.
 
-    PROFILE_INDEX {
-      string id
-      string name
-      string avatar
-      string createdAt
-    }
-    PROFILE_DATA {
-      array transactions
-      array categories
-      array incomeCategories
-      array paymentMethods
-      object budgets
-      array recurring
-      object settings
-      string createdAt
-    }
-    TRANSACTION {
-      string id
-      string type
-      string date
-      string time
-      integer amountMinor
-      string category
-      string subcategory
-      string paymentMethod
-      string description
-      string merchant
-      string location
-      string recurringId
-      string createdAt
-      string updatedAt
-    }
-    RECURRING_RULE {
-      string id
-      string type
-      integer amountMinor
-      string frequency
-      integer interval
-      string startDate
-      string lastGenerated
-      string endDate
-      boolean paused
-    }
-    SETTINGS {
-      string currency
-      string theme
-      string layout
-      array customCurrencies
-      array descriptionPresets
-      string pinHash
-      boolean allowFutureDates
-    }
-```
+Common data entities include:
 
-### Entity explanations
+- **Profile index:** profile ID, display name, optional avatar, and creation date.
+- **Transaction:** ID, type, date/time, amount in minor units, category, subcategory, payment method, description, merchant, location, and timestamps.
+- **Recurring rule:** transaction type, amount, frequency, interval, start/end dates, pause state, and generation tracking.
+- **Settings:** currency, theme, layout, custom currencies, saved descriptions, PIN hash, and future-date preference.
+- **Budgets and categories:** profile-specific budget values and transaction classification options.
 
-| Entity | Purpose |
-|---|---|
-| **Profile index (`USERS`)** | Holds each profile's ID, display name, optional avatar, and creation date. |
-| **Profile data (`DATA`)** | The full independent dataset for the currently active profile. |
-| **Transaction** | One income or expense record, including amount, date/time, category, payment method, description, merchant, and location. |
-| **Expense categories** | Categories such as Food, Transport, Home, Shopping, Health, Education, Entertainment, Technology, and Other. Categories can include subcategories. |
-| **Income categories** | Categories such as Salary, Freelance, Business, Interest, Gifts, and Other. |
-| **Recurring rule** | Describes a transaction to generate daily, weekly, monthly, or yearly, with interval, start/end dates, and pause state. |
-| **Budget** | Monthly overall and category budget values, stored under the `budgets` object. |
-| **Settings** | Per-profile currency, theme, layout density, future-date preference, custom currencies, saved descriptions, PIN hash, and backup timestamp. |
-| **Custom currency** | A user-defined currency code, name, and symbol, added to the built-in currency list. |
-| **Saved description** | A reusable transaction description managed in Settings and shown as a shortcut on the transaction form. |
-
-### Important implementation details
-
-- The profile index is shared by the app, while each profile's full data is stored separately.
-- Transaction amounts are stored as integer minor units (`amountMinor`) to reduce floating-point rounding errors. For two-decimal currencies, `₹12.50` is stored as `1250`.
-- Transactions use generated IDs such as `EXP-YYYYMMDD-001` or `INC-YYYYMMDD-001`.
-- A transaction can optionally reference a recurring rule through `recurringId`.
-- Profile settings and categories are copied from defaults when a new profile is created. Loading older data merges it with defaults to help maintain compatibility.
-
----
-
-## 4. Browser storage design
-
-The application uses these main `localStorage` keys:
-
-| Key pattern | Contents |
-|---|---|
-| `ledger:users` | JSON array of profile-index entries. |
-| `ledger:activeUser` | ID of the active profile. |
-| `ledger:data:<profile-id>` | Full JSON data for one profile. |
-| `ledger:data:<profile-id>:pre-restore:<timestamp>` | Safety copy made before restoring a backup. |
-| `ledger:data:<profile-id>:corrupt-backup:<timestamp>` | Raw saved data retained when the loader detects malformed profile data. |
-| `ledger:currencyRates` | Currency-rate cache key used by the currency-converter feature. |
-
-Core storage functions:
-
-- `loadUsers()` — reads the profile list and active profile.
-- `saveUsers()` — persists the profile list.
-- `setActiveUser(id)` — records the active profile ID.
-- `dataKey(id)` — constructs the key for a profile's data.
-- `defaultData(currency)` — creates a fresh profile data structure.
-- `loadDataForUser(id)` — loads, validates, and migrates profile data.
-- `saveData()` — writes the current `DATA` object to the active profile's key.
-
-`localStorage` is synchronous browser storage. If the browser's quota is exceeded or storage is unavailable, the application may be unable to save; the app shows a warning toast when `saveData()` catches a storage error.
-
-### Optional local folder storage
-
-The Settings page includes **Local folder storage** for browsers that support the File System Access API.
-
-- Choose a folder on the device. The app creates a separate subfolder for each profile and writes a JSON copy of that profile's data.
-- The folder copy is an additional local backup; browser `localStorage` remains active and is still the primary in-app data source.
-- The app may remember a folder handle through IndexedDB, but the browser can require permission to be granted again.
-- The app prompts the user to connect storage when a profile has no usable folder connection. The prompt is limited to once per profile during a page load and is suppressed when a usable connection is available.
-- **Choose JSON file to load** lets the user select a supported JSON backup/data file. Before imported data replaces the current profile data, the app validates it, asks for confirmation, and creates a safety copy in browser storage.
-- If the native file picker API is unavailable, the app uses a standard file input for JSON import where possible. Folder writing itself requires a supported browser and user permission.
-- Deleting a profile attempts to delete that profile's subfolder and disconnects the shared root-folder handle. Other profiles can reconnect it afterward.
-
-Browser support varies. Desktop Chromium-based browsers such as Chrome and Edge generally support folder access on secure contexts (including HTTPS and localhost). Safari does not support the same directory picker API; use Backup & Restore for portable JSON backups when folder access is unavailable. GitHub Pages hosts the application files but does not receive or synchronize the user's local folder contents.
-
----
-
-## 5. Transaction workflow
-
-```mermaid
-flowchart TD
-    A[Choose Add Expense or Add Income] --> B[Select transaction type]
-    B --> C[Enter amount, date, category and optional details]
-    C --> D[Validate required fields]
-    D --> E{Valid?}
-    E -- No --> F[Show field errors]
-    F --> C
-    E -- Yes --> G[Convert amount to minor units]
-    G --> H{Editing existing record?}
-    H -- Yes --> I[Merge fields into existing transaction]
-    H -- No --> J[Check for a likely recent duplicate]
-    J --> K{Possible duplicate?}
-    K -- Yes --> L[Ask user to confirm]
-    L -- Cancel --> M[Stop]
-    L -- Add anyway --> N[Generate ID and append transaction]
-    K -- No --> N
-    I --> O[Save profile data]
-    N --> O
-    O --> P[Reset form and navigate to Dashboard]
-```
-
-### Required validation
-
-- Amount must be present, numeric, greater than zero, and within the application's allowed maximum.
-- Date must be a valid calendar date.
-- Future dates can be restricted using Settings.
-- A category must be selected.
-
-### Add versus edit
-
-- **Add:** creates a new transaction ID and sets `createdAt`.
-- **Edit:** finds the transaction by `EDIT_ID`, merges the submitted fields into that same record, and sets `updatedAt`. It does not intentionally create a second record.
-- A possible duplicate is detected when a very similar transaction was created within the last five minutes; the user can choose whether to add it anyway.
-- After a successful change, the application calls `saveData()` and refreshes the interface.
-
-### Transaction display and filtering
-
-The Transactions page filters by search text, type, category, payment method, date range, and minimum/maximum amount. Sorting options include newest, oldest, highest amount, lowest amount, and category. The search includes descriptions, category/subcategory, merchant, location, payment method, tags when present, amount, and date.
-
----
-
-## 7. Feature workflows
-
-### Dashboard
-
-The dashboard derives its figures from the active profile's transactions and budgets. It displays balance, monthly income, monthly expenses, remaining amount, today's spending, current-month spending, budget status, quick-add options, and recent transactions.
-
-The dashboard is a view of the saved transaction data; its summary figures are calculated from the underlying records rather than stored as a separate ledger.
-
-### Calendar
-
-The calendar groups transaction activity by date. Selecting a day opens the relevant daily details. Calendar navigation changes the displayed month and refreshes the calendar view.
-
-### Reports
-
-The Reports section calculates monthly and yearly summaries from transactions. It includes income, expenses, savings, top category, largest expense, category distribution, daily spending, payment-method breakdown, and other statistics. Charts are rendered in the page using canvas/SVG-based UI code.
-
-### Budgets
-
-Budgets are stored per profile and organized by month. The app supports an overall monthly budget and category budgets. Budget progress is calculated by comparing expenses in the selected month with the configured limits.
+Transaction amounts are stored as integer minor units to reduce floating-point rounding errors. For example, `₹12.50` is represented as `1250` in a currency with two decimal places.
 
 ### Recurring transactions
 
-1. A recurring rule is saved with its type, amount, category, frequency, interval, start date, and optional end date.
-2. When the app starts and when the active profile is switched, `runRecurringEngine()` checks unpaused rules.
-3. It calculates due dates and creates missing transactions up to today.
-4. Each generated transaction receives the rule's `recurringId` and a `recurring` tag.
-5. Existing generated transactions are checked before insertion to avoid generating the same rule/date combination twice.
-6. Newly generated entries are saved to the profile.
+Recurring rules are checked when the application starts and when the active profile is switched. Due entries are generated up to the current date, and the application checks for an existing entry for the same rule and scheduled date to reduce duplicate generation.
 
-Recurring schedules are anchored to the original start date. A weekly rule uses seven calendar days multiplied by its interval, so a weekly rule with interval `1` is due every 7 days (not every 4 days). Monthly and yearly dates are also calculated from the original start date to reduce date drift. The engine checks for an existing transaction for the same recurring rule and scheduled date before creating an occurrence, and it observes recorded skipped dates where supported. A loop guard prevents an unbounded generation loop. Recurring entries are generated when the app runs; this is not a background server or scheduled task running while the browser is closed.
+Weekly schedules use seven-day intervals multiplied by the configured interval. Monthly and yearly schedules are calculated from the original start date to reduce date drift. The recurring engine runs when the application is opened; it is not a background service and does not run while the browser is closed.
 
-The recurring list shows the per-occurrence amount, next due date, number of recorded occurrences, and the total amount of generated occurrences. Review existing transactions if a previous version already generated incorrect dates or duplicate entries; the app does not automatically rewrite all historical financial records.
+## Data storage and privacy
 
-### Profiles
+The application uses browser `localStorage` as its primary in-app data store. The main key patterns are:
 
-- Each profile has its own data key and financial records.
-- Creating a profile creates a new default dataset and makes that profile active.
-- Switching profiles loads the selected profile's data, applies its theme, runs the recurring engine, and opens the dashboard.
-- Before deleting a profile, the app offers **Download backup & continue**, **Delete without backup**, or cancellation. The JSON backup can be imported into another profile later.
-- Profile deletion removes its browser-stored data after confirmation and attempts to remove its associated profile subfolder if the browser still grants access.
-- Deleting a profile also disconnects the shared folder handle. Other profiles can reconnect the root folder in Settings.
-- If the browser cannot delete the folder due to missing permissions or unsupported APIs, the app warns that manual deletion may be necessary.
-- Deleting the active profile switches to another profile when available; if none remain, onboarding is shown.
+| Key | Purpose |
+|---|---|
+| `ledger:users` | JSON array containing the profile index |
+| `ledger:activeUser` | ID of the active profile |
+| `ledger:data:<profile-id>` | Full data for a profile |
+| `ledger:data:<profile-id>:pre-restore:<timestamp>` | Safety copy created before restoring a backup |
+| `ledger:data:<profile-id>:corrupt-backup:<timestamp>` | Retained raw data when malformed profile data is detected |
+| `ledger:currencyRates` | Cached currency-rate data |
 
-### Settings
+Important storage notes:
 
-Settings include profile management, theme (Light/Dark/System), layout density, currency, future-date preference, saved descriptions, custom currencies, and PIN controls. Theme and layout are applied to the page using CSS variables and classes.
+- Data is associated with the browser profile and website origin. It does not automatically move to another browser, device, or origin.
+- Clearing browser/site data may permanently remove locally stored records. Export backups regularly and keep them somewhere safe.
+- Browser storage has finite capacity. If storage is unavailable or full, saving may fail and the application may show a warning.
+- The optional local-folder feature writes an additional JSON copy; `localStorage` remains the primary in-app source of data.
+- The application does not require a remote application server for its core tracking workflow. Currency-rate requests, browser extensions, browser sync, and saved backups are outside the app's local-storage boundary.
 
-Saved descriptions are profile-specific shortcuts. They fill the transaction Description field; they are not a separate transaction or category.
+### PIN security
 
-### Currency converter
+The optional PIN is stored as a hash-like value rather than as the plain PIN. It is intended to discourage casual access on the same device, **not to encrypt financial data**. Someone with access to browser developer tools or local storage may be able to inspect or change stored data. Do not treat the PIN as a substitute for device security or encrypted storage.
 
-The app includes built-in currency definitions for INR, USD, EUR, GBP, JPY, CAD, AED, and AUD, plus profile-specific custom currencies. The converter can use cached rate data and may require network access to obtain fresh rates. It should not be treated as a guaranteed live rate source while offline.
+## Backup, restore, and export
 
-### Backup and restore
+### JSON backup
 
-**Backup**
-1. The app records the backup timestamp.
-2. It creates a JSON bundle containing the app name, backup version, export timestamp, and active profile's `DATA`.
-3. The browser downloads a file named like `ExpenseTracker_Backup_YYYY-MM-DD.json`.
+The backup feature downloads a JSON bundle containing application metadata, a backup version, an export timestamp, and the active profile's data. The filename follows a pattern such as:
 
-**Restore**
-1. The user selects a JSON file.
-2. The app checks that it is valid JSON and contains a `transactions` array, either directly or under `data`.
-3. The app asks for confirmation.
-4. It writes a safety copy of the current profile data to a separate local-storage key.
-5. It replaces the active profile's data with the imported data, merges settings with defaults, saves, and refreshes the dashboard.
+```text
+ExpenseTracker_Backup_YYYY-MM-DD.json
+```
 
-**CSV export** creates a spreadsheet-friendly export of transactions. Keep JSON backups in a safe place because local browser data is not automatically synchronized.
+### Restore
 
----
+1. Select a JSON backup file.
+2. The application checks that the file is valid JSON and contains a `transactions` array, directly or under a `data` property.
+3. Confirm the restore operation.
+4. The application creates a safety copy of the current profile data in browser storage.
+5. The imported data replaces the active profile's data; settings are merged with defaults, then the application saves and refreshes the interface.
 
-## 8. PIN and privacy workflow
+Restoring replaces the current active profile's data. Keep an additional backup before restoring important records.
 
-- The PIN is stored as a hash-like value in the active profile's settings, not as the plain PIN.
-- On startup, if `pinHash` exists, the app hides the main app shell and shows the lock screen.
-- When a PIN is entered, the app hashes it and compares the result with the stored value.
-- A matching value unlocks the app; a mismatch displays an error.
+### CSV export
 
-**Security limitation:** The PIN is intended to discourage casual access on the same device. It is not encryption for the underlying financial data. A person with access to browser developer tools or the browser's local storage may be able to inspect or change stored data. Do not treat the PIN as a substitute for device security or encrypted storage.
+CSV export produces a spreadsheet-friendly file of transactions. Use JSON backups for restoring application data; CSV exports are intended for viewing or analysis and are not a substitute for a full JSON backup.
 
-The HTML application does not require a remote application server for its core workflow. However, browser extensions, browser sync, backups, and the currency converter's network requests are outside the app's local-storage boundary.
+### Optional local-folder storage
 
----
+In supported browsers, Settings can connect a user-selected folder and write a separate JSON copy for each profile. The browser may ask for folder permission again. If folder access is unavailable, use JSON Backup & Restore instead. Deleting a profile attempts to remove its associated subfolder when permissions and browser support allow it.
 
-## 9. Interface and responsive design
+## Browser compatibility
 
-- **HTML:** defines the onboarding, lock screen, app shell, navigation, pages, forms, modal root, and toast root.
-- **CSS:** defines theme variables, light/dark appearance, layout, cards, forms, responsive navigation, modal styling, and login/onboarding animations.
-- **JavaScript:** owns application state, validation, storage, navigation, calculations, profile switching, recurring rules, reports, and export/restore actions.
-- **Single-page navigation:** `navigate(route)` hides the other page sections, displays the requested section, and calls the relevant render function.
-- **Modal system:** `openModal()` creates dialogs in `#modalRoot`; `closeModal()` clears the modal. Toast messages are rendered in `#toastRoot`.
-- **Mobile layout:** the sidebar is replaced by a top bar and bottom navigation at narrower screen widths.
+The core tracker uses standard browser technologies. Support for optional folder access depends on the browser and security context:
 
-The finance-themed welcome and login animations are decorative. They do not represent actual account balances or transactions.
+- Desktop Chromium-based browsers such as Chrome and Edge generally support the File System Access API on secure contexts, including HTTPS and `localhost`.
+- Safari does not provide the same directory-picker API; use JSON Backup & Restore when folder access is unavailable.
+- If a browser cannot provide a native JSON file picker, the application may use a standard file input for importing JSON where supported.
 
----
+Browser-specific behavior should be tested in the target browser after changes. GitHub Pages hosts the website but cannot access or synchronize a visitor's local folder contents.
 
-## 10. Development and publishing workflow
+## Development workflow
+
+A typical workflow using Visual Studio Code and Git is:
 
 ```mermaid
 flowchart LR
-    A[Edit HTML in VS Code] --> B[Test locally in browser]
-    B --> C[Review changes with git diff]
+    A[Edit files] --> B[Test in browser]
+    B --> C[Review git diff]
     C --> D[git add]
     D --> E[git commit]
-    E --> F[git push to remote]
-    F --> G[GitHub repository updated]
+    E --> F[git push]
+    F --> G[Remote repository updated]
     G --> H{GitHub Pages configured?}
-    H -- Yes --> I[Published site updates after Pages build]
-    H -- No --> J[Source is uploaded, but site is not necessarily published]
+    H -- Yes --> I[Site updates after deployment]
+    H -- No --> J[Files are uploaded but site may not be published]
 ```
 
-Typical commands:
+Example commands:
 
 ```bash
 git status
 git diff
 git add index.html README.md
-git commit -m "Improve expense tracker workflow documentation"
+git commit -m "Update expense tracker documentation"
 git push origin main
 ```
 
-For GitHub Pages, the published branch/folder must be configured in repository settings. If the website is published from the `main` branch and root folder, changes pushed to that branch normally publish after the Pages deployment completes. A local commit alone does not update the remote repository, and a push does not guarantee publication if Pages is not configured correctly.
+A local commit does not update the remote repository until it is pushed. A push does not guarantee that the site is published; GitHub Pages must be configured and deployment must complete.
 
-### Suggested project structure
+## Known limitations
 
-```text
-personal-expense-tracker/
-├── index.html    # Entire application (HTML, CSS and JavaScript)
-└── README.md     # Project documentation and workflow
-```
+- The application stores financial data locally in the browser; records are not automatically synchronized across devices.
+- Browser storage can be cleared, unavailable, or full.
+- The optional PIN is not encryption.
+- Recurring entries are generated when the app runs, not while it is closed.
+- Currency conversion may require internet access for fresh rates and should not be treated as a guaranteed live source while offline.
+- Folder access depends on browser support and permission grants.
+- Restoring a JSON backup replaces the active profile's current data after confirmation.
+- A successful JavaScript syntax check cannot guarantee that every interface interaction works; test the application in a browser after making changes.
 
-This is a suggested structure. The app itself is implemented as a single HTML file; the documentation is separate.
-
----
-
-## 11. Important limitations and maintenance notes
-
-- The app stores data in browser `localStorage`, which has finite capacity and can be cleared by the user or browser.
-- Profiles are separate local data sets, not online user accounts. Deleting a profile may disconnect the shared local-folder connection for all profiles until it is reconnected.
-- The PIN lock is not strong encryption.
-- The recurring engine runs when the app starts or a profile is switched; it does not run in the background while the app is closed. Weekly rules are anchored to the original start date and use 7-day intervals; review old entries if earlier versions generated incorrect dates.
-- The currency converter may need an internet connection to retrieve exchange rates.
-- Restoring a backup replaces the current active profile's data after confirmation. Keep an additional backup before important changes.
-- GitHub Pages hosts the website files; it does not automatically store or synchronize each visitor's `localStorage` records.
-- Test changes in a browser after editing. A JavaScript syntax check catches syntax errors but cannot guarantee every UI interaction works correctly.
-
----
-
-## 12. Quick reference: important functions
-
-| Function | Responsibility |
-|---|---|
-| `init()` | Starts the app's initialization workflow. |
-| `loadUsers()` / `saveUsers()` | Read and write the profile index. |
-| `defaultData()` | Creates the initial profile data structure. |
-| `loadDataForUser()` / `saveData()` | Load, migrate, and persist the active profile's data. |
-| `applyTheme()` | Applies the selected theme and layout density. |
-| `navigate(route)` | Switches between app pages and renders the selected page. |
-| `runRecurringEngine()` | Generates due recurring transactions that do not already exist. |
-| `renderDashboard()` | Calculates and displays dashboard summaries. |
-| `renderTransactionsPage()` | Renders transaction search, filters, sorting, and the ledger. |
-| `renderCalendar()` | Renders the calendar view. |
-| `renderReports()` | Calculates and renders report summaries and charts. |
-| `renderBudgets()` | Displays budget limits and spending progress. |
-| `renderBackupPage()` | Displays backup status and data summary. |
-| `backupBundle()` | Builds the JSON backup payload. |
-| `attemptUnlock()` | Verifies the entered PIN against the stored hash value. |
-| `startApp()` | Applies settings, checks the lock, runs recurring rules, and opens the dashboard. |
-
----
-
-## 13. End-to-end summary
-
-The user creates or selects a local profile. The application loads that profile's data from `localStorage`, checks the PIN setting, applies appearance preferences, and opens the dashboard. Every add/edit/delete or settings action updates the in-memory profile data and saves it back to the profile's storage key. Dashboard, calendar, transactions, budgets, and reports read from this shared data. Recurring rules add due transactions when the app starts. Backup and CSV export let the user move or analyze records outside the browser, while restore imports a previous JSON snapshot.
-
-The main data path is:
-
-**User action → JavaScript validation/business logic → update `DATA` → `saveData()` → `localStorage` → re-render the relevant view.**
-
-
-## 14. Current feature checklist
+## Current feature checklist
 
 - [x] Multiple local profiles with separate financial datasets
-- [x] Income and expense tracking with required positive amounts
+- [x] Income and expense tracking
 - [x] Categories, subcategories, payment methods, search, filters, and sorting
 - [x] Dashboard, calendar, reports, and monthly/category budgets
 - [x] Recurring income and expenses (daily, weekly, monthly, yearly)
 - [x] JSON backup/restore and CSV transaction export
-- [x] Optional profile-specific JSON file copies in a user-selected local folder
+- [x] Optional profile-specific JSON copies in a user-selected local folder
 - [x] Profile deletion flow with an optional backup download
 - [x] Theme settings and optional PIN lock
 - [x] Currency converter and custom currencies
 
-This checklist describes implemented features in the current project file; it is not a claim that every browser-specific behavior has been tested on every device. Test the app in the target browser after modifying the HTML.
+---
+
+**Project:** Personal Expense Tracker  
+**Application type:** Single-page, offline-first web application  
+**Primary technologies:** HTML, CSS, vanilla JavaScript, browser storage  
+**Version:** Not specified in the supplied project documentation
