@@ -4,7 +4,7 @@ A single-page, offline-first expense and income tracker built with **HTML, CSS, 
 
 > **Current project documentation:** This README describes the current implementation represented by the supplied project documentation. No numbered software release/version was provided, so this file does not assign one.
 
-## Table of contents
+## Table of Items
 
 - [Overview](#overview)
 - [Features](#features)
